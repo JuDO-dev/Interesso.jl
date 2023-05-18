@@ -3,6 +3,13 @@ uuid = "6fc4ee9f-0a6c-4ef5-81c0-9afe0a8161a6"
 authors = ["astroEduardo <72969764+astroEduardo@users.noreply.github.com> and contributors"]
 version = "0.1.0"
 
+[deps]
+Enzyme = "7da242da-08ed-463a-9acd-ee780be4f1d9"
+FastGaussQuadrature = "442a2c76-b920-505d-bb47-c5924d526838"
+JuDOInterface = "d3b3f8d7-7cb8-4d66-8c6c-114c578a6a12"
+Progradio = "51b56db3-d662-4c62-b876-96e861d9ac15"
+Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
+
 [compat]
 julia = "1.6"
 
