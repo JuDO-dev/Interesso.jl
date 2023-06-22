@@ -1,43 +1,29 @@
 module Interesso
 
+import MathOptInterface    as MOI
+import FastGaussQuadrature as FGQ
+import LinearAlgebra       as LA
+import ReverseDiff         as RD
 import Reexport
 Reexport.@reexport using JuDOInterface
-import Progradio
-import FastGaussQuadrature
-import Enzyme
-
-abstract type PointDistribution{T} end
-include("point_distributions/legendre_lobatto.jl")
-#include("point_distributions/chebyshev_second.jl")
-export LegendreLobatto#, ChebyshevSecond
 
 abstract type Intervals{T} end
+abstract type Polynomials{T} end
+abstract type Bounds end
+abstract type Transcription{T, I<:Intervals, P<:Polynomials, B<:Bounds} end
+abstract type Refinement{T, TT<:Transcription} end
+
 include("intervals/rigid.jl")
-#include("intervals/flexible.jl")
-export RigidIntervals#, FlexibleIntervals
+export RigidIntervals
 
-# Transcription
-abstract type Transcription{T, I<:Intervals{T}} end
-include("transcription/discretization.jl")
-include("transcription/direct_collocation.jl")
-include("transcription/least_squares.jl")
-include("transcription/start.jl")
-include("transcription/bounds.jl")
-include("transcription/transcribe.jl")
-export LeastSquares, DirectCollocation, transcribe
+include("polynomials/legendre_lobatto.jl")
+include("polynomials/barycentric_interpolation.jl")
+export LegendreLobatto
 
-# Refinement
-#include("refinement/partition.jl")
-#abstract type AbstractRefinement{F<:AbstractFloat} end
-#abstract type AbstractRefinementState{F<:AbstractFloat} end
-#include("refinement/no.jl")
-#include("refinement/convergent.jl")
-#include("refinement/predictive.jl")
-#export NoRefinement#, ConvergentRefinement, PredictiveRefinement
+include("bounds/simple.jl")
+export SimpleApproximation
 
-# Solve
-#include("solve.jl")
-
-include("barycentric.jl")
+include("transcriptions/direct_collocation.jl")
+export DirectCollocation
 
 end
