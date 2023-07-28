@@ -4,12 +4,16 @@ authors = ["astroEduardo <72969764+astroEduardo@users.noreply.github.com> and co
 version = "0.1.0"
 
 [deps]
-FastGaussQuadrature = "442a2c76-b920-505d-bb47-c5924d526838"
-JuDOInterface = "d3b3f8d7-7cb8-4d66-8c6c-114c578a6a12"
+AbstractDifferentiation = "c29ec348-61ec-40c8-8164-b8c60e9d9f3d"
+Enzyme = "7da242da-08ed-463a-9acd-ee780be4f1d9"
+FastTransforms = "057dd010-8810-581a-b7be-e3fc3b93f78c"
+JuDOBase = "873f1e1d-8bb6-4abe-a7f3-0b54b034f0a6"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
-MathOptInterface = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"
+Progradio = "51b56db3-d662-4c62-b876-96e861d9ac15"
+QuadGK = "1fd47b50-473d-5c70-9696-f719f8f3bcdc"
 Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 ReverseDiff = "37e2e3b7-166d-5795-8a7a-e32c996b4267"
+Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [compat]
 julia = "1.6"

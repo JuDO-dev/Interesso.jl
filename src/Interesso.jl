@@ -1,29 +1,48 @@
 module Interesso
 
-import MathOptInterface    as MOI
-import FastGaussQuadrature as FGQ
-import LinearAlgebra       as LA
-import ReverseDiff         as RD
-import Reexport
-Reexport.@reexport using JuDOInterface
+using Reexport
+@reexport using JuDOBase
+@reexport using Progradio
+#using AbstractDifferentiation
+using Enzyme
+#using Zygote
+#using ReverseDiff
+using QuadGK: gauss, kronrod
+#using FastTransforms: clenshawcurtisnodes, chebyshevmoments1, clenshawcurtisweights
+using LinearAlgebra: dot
 
-abstract type Intervals{T} end
-abstract type Polynomials{T} end
-abstract type Bounds end
-abstract type Transcription{T, I<:Intervals, P<:Polynomials, B<:Bounds} end
-abstract type Refinement{T, TT<:Transcription} end
+# Barycentric Polynomials
+include("polynomials/BarycentricPolynomials.jl")
+using .BarycentricPolynomials
+export Chebyshev1, Chebyshev2
 
-include("intervals/rigid.jl")
-export RigidIntervals
+# Nested Quadrature
+include("quadrature/NestedQuadratures.jl")
+using .NestedQuadratures
+export GaussKronrod
 
-include("polynomials/legendre_lobatto.jl")
-include("polynomials/barycentric_interpolation.jl")
-export LegendreLobatto
+# Mesh
+abstract type InteressoMesh{F<:AbstractFloat} end
+include("mesh/rigid.jl")
+include("mesh/flexible.jl")
+export RigidMesh, FlexibleMesh
 
-include("bounds/simple.jl")
-export SimpleApproximation
+# Transcription
+abstract type InteressoTranscription{F<:AbstractFloat, M<:InteressoMesh} end
+include("transcription/bounds.jl")
+include("transcription/interpolation.jl")
+#include("transcription/warmstarting.jl")
+include("transcription/leastSquares.jl")
+#include("transcription/collocation.jl")
+export LeastSquares
 
-include("transcriptions/direct_collocation.jl")
-export DirectCollocation
+# Refinement
+#abstract type InteressoRefinement{F<:AbstractFloat, T<:InteressoTranscription} end
+#include("refinement/no.jl")
+#include("refinement/convergent.jl")
+#include("refinement/predictive.jl")
+
+# Solve
+#include("solve.jl")
 
 end
