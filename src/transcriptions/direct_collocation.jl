@@ -19,6 +19,8 @@ end
 
 z_length(dop::DOProblem, transcription::Transcription) = transcription.intervals.n * (length(dop.x) * transcription.x_polynomials.n + length(dop.u) * transcription.u_polynomials.n);
 
+get_residuals(equations::ResidualEquations) = equations.r!;
+
 mutable struct DirectCollocationEvaluator <: MOI.AbstractNLPEvaluator
 
     z_ranges
@@ -44,7 +46,7 @@ mutable struct DirectCollocationEvaluator <: MOI.AbstractNLPEvaluator
         x_i_length = n_x * n_τ_x;
         u_i_length = n_u * n_τ_u;
         z_i_length = x_i_length + u_i_length;
-        r_i_length = n_r * n_τ_q;
+        r_i_length = n_r * (n_τ_q - 1);#2);
         J_i_length = z_i_length * r_i_length;
         
         z_ranges = [UnitRange((i-1) * z_i_length + 1, i * z_i_length) for i in 1:n_i];
@@ -78,42 +80,45 @@ mutable struct DirectCollocationEvaluator <: MOI.AbstractNLPEvaluator
         end
 
         # Gradient of the cost
-        g∫c_tape = RD.compile(RD.GradientTape(∫c_closure, rand(z_i_length)));
+        g∫c_tape = RD.compile(RD.GradientTape(∫c_closure, zeros(z_i_length)));
 
         # Residuals
         r! = get_residuals(dop.equations);
-        function r_closure!(r_i::AbstractArray{<:Real}, z_i::AbstractArray{<:Real}) 
+        function r_closure!(r_i::AbstractVector{<:Real}, z_i::AbstractVector{<:Real}) 
+            
             @views begin
-                r_i = reshape(r_i,                          n_r, n_τ_q);
-                x_i = reshape(z_i[1:x_i_length], n_x, n_τ_x);
-                u_i = reshape(z_i[x_i_length + 1:z_i_length], n_u, n_τ_u);
+                r_i_view = reshape(r_i,                     n_r, n_τ_q - 1);#2);
+                x_i = reshape(z_i[1:x_i_length],            n_x, n_τ_x);
+                u_i = reshape(z_i[x_i_length+1:z_i_length], n_u, n_τ_u);
+            
+                ẋ_i = dc.D * permutedims(x_i, (2,1)) * (2 / (dc.intervals.t[2] - dc.intervals.t[1]));
+            
+                for k in eachindex(dc.q_polynomials.τ)
+                    if k != 1 #&& k != n_τ_q
+                        r!(r_i_view[:,k-1], ẋ_i[k,:], x_i[:,k], u_i[:,k]);
+                    end
+                end
             end;
-            
-            ẋ_i = dc.D * permutedims(x_i, (2,1));
-            
-            for k in eachindex(dc.q_polynomials.τ)
-                r!(r_i[:,k], ẋ_i[k,:], x_i[:,k], u_i[:,k]);
-            end
             return nothing
         end
 
         # Jacobian of the residuals
-        Jr_tape = RD.compile(RD.JacobianTape(r_closure!, rand(r_i_length), rand(z_i_length)));
+        Jr_tape = RD.compile(RD.JacobianTape(r_closure!, zeros(r_i_length), zeros(z_i_length)));
 
         return new(z_ranges, r_ranges, J_ranges, J_structure, x_indices, u_indices, g∫c_tape, Jr_tape)
     end
 end
 
 function add_continuity!(m::MOI.ModelLike, variable_indices)
-
-    (j_range, k_range) = axes(variable_indices[begin]);
     
-    for i in 2:length(variable_indices)
-        for j in j_range, k in k_range
-            MOI.add_constraint(m, MOI.ScalarAffineFunction([
-                MOI.ScalarAffineTerm( 1.0, variable_indices[i][j,begin]),
-                MOI.ScalarAffineTerm(-1.0, variable_indices[i-1][j,end])
-            ], 0.0), MOI.EqualTo(0.0));
+    for i in eachindex(variable_indices)
+        if i > 1
+            for j in axes(variable_indices[i], 1)
+                MOI.add_constraint(m, MOI.ScalarAffineFunction([
+                    MOI.ScalarAffineTerm( 1.0, variable_indices[i][j,begin]),
+                    MOI.ScalarAffineTerm(-1.0, variable_indices[i-1][j,end])
+                ], 0.0), MOI.EqualTo(0.0));
+            end
         end
     end
     return nothing
@@ -129,7 +134,7 @@ function add_boundary_conditions!(m::MOI.ModelLike, variable_indices, variables)
     end
     return nothing
 end
-
+#=
 function MOI.eval_objective(dce::DirectCollocationEvaluator, z::AbstractVector{T})::T where {T}
 
     @views begin
@@ -151,7 +156,7 @@ function MOI.eval_objective_gradient(dce::DirectCollocationEvaluator, gcz::Abstr
     end
     return nothing
 end
-
+=#
 function MOI.eval_constraint(dce::DirectCollocationEvaluator, rz::AbstractVector{T}, z::AbstractVector{T})::Nothing where {T}
 
     @views begin
@@ -180,6 +185,7 @@ function MOI.eval_constraint_jacobian(dce::DirectCollocationEvaluator, J::Abstra
     return nothing
 end
 
-nlp_block_data(dce::DirectCollocationEvaluator) = MOI.NLPBlockData([MOI.NLPBoundsPair(0.0, 0.0) for _ in Base.OneTo(length(dce.J_structure))] , dce, true);
+nlp_block_data(dce::DirectCollocationEvaluator) = MOI.NLPBlockData([MOI.NLPBoundsPair(0.0, 0.0) for _ in 1:dce.r_ranges[end][end]], dce, false);
 
-get_residuals(equations::ResidualEquations) = equations.r!;
+MOI.features_available(::DirectCollocationEvaluator) = [];
+MOI.initialize(::DirectCollocationEvaluator, ::Vector{Symbol}) = nothing;

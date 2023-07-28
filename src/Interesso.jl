@@ -24,6 +24,7 @@ include("bounds/simple.jl")
 export SimpleApproximation
 
 include("transcriptions/direct_collocation.jl")
-export DirectCollocation
+#include("transcriptions/least_squares.jl")
+export DirectCollocation#, LeastSquares
 
 end

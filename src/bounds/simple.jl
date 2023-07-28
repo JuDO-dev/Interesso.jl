@@ -4,7 +4,7 @@ function add_bounds!(m::MOI.ModelLike, variable_indices, variables)
 
     for i in eachindex(variable_indices)
         for j in eachindex(variables)
-            for k in axes(variable_indices, 2)
+            for k in axes(variable_indices[i], 2)
                 MOI.add_constraint(m, variable_indices[i][j,k], MOI.GreaterThan(variables[j].bounds.lower));
                 MOI.add_constraint(m, variable_indices[i][j,k],    MOI.LessThan(variables[j].bounds.upper));
             end

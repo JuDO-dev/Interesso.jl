@@ -1,6 +1,15 @@
-using Interesso
 using Test
+using Interesso
+const I = Interesso;
 
-@testset "Interesso.jl" begin
-    # Write your tests here.
-end
+include("barycentric_interpolation.jl")
+
+include("rules/legendre_lobatto.jl")
+#include("rules/chebyshev_second.jl")
+
+include("intervals/rigid.jl")
+#include("intervals/flexible.jl")
+
+#include("transcription/discretizations.jl")
+#include("transcription/warmstart.jl")
+#include("transcription/bounds.jl")
