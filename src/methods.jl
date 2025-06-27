@@ -15,4 +15,3 @@ struct CollocationMesh <: AbstractMethodMesh end
 mesh_type(::Type{Collocation}) = CollocationMesh
 
 build_method_mesh(::Collocation, ::AbstractPointsMesh) = CollocationMesh()
-
