@@ -19,25 +19,5 @@ Solves **Dynamic Feasibility** and **Dynamic Optimisation** problems (think Opti
 
 ```julia
 julia> ]
-  pkg> add Interesso
-```
-
-## Example using solve()
-```julia
-using Interesso
-
-dop = DOProblem();
-
-solution = solve(dop, LeastSquares());
-```
-
-## Example using iterator()
-```julia
-using Interesso
-
-dop = DOProblem();
-
-I = DOIterator(dop, LeastSquares());
-
-collect(I);
+  pkg> add https://github.com/JuDO-dev/Interesso.jl
 ```
