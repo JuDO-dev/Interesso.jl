@@ -1,48 +1,34 @@
 module Interesso
 
-using Reexport
-@reexport using JuDOBase
-@reexport using Progradio
-#using AbstractDifferentiation
-using Enzyme
-#using Zygote
-#using ReverseDiff
-using QuadGK: gauss, kronrod
-#using FastTransforms: clenshawcurtisnodes, chebyshevmoments1, clenshawcurtisweights
-using LinearAlgebra: dot
+import Ipopt
+import MathOptInterface as MOI
+import DynOptInterface as DOI
+import FastGaussQuadrature as FGQ
 
-# Barycentric Polynomials
-include("polynomials/BarycentricPolynomials.jl")
-using .BarycentricPolynomials
-export Chebyshev1, Chebyshev2
+using OrderedCollections: OrderedSet, OrderedDict
 
-# Nested Quadrature
-include("quadrature/NestedQuadratures.jl")
-using .NestedQuadratures
-export GaussKronrod
+include("interpolants.jl")
+include("points.jl")
+include("methods.jl")
+include("bounds.jl")
+include("intervals.jl")
 
-# Mesh
-abstract type InteressoMesh{F<:AbstractFloat} end
-include("mesh/rigid.jl")
-include("mesh/flexible.jl")
-export RigidMesh, FlexibleMesh
+include("DOI/aliases.jl")
+include("DOI/optimizer.jl")
+include("DOI/attributes.jl")
+include("DOI/ingredients.jl")
+include("DOI/solutions.jl")
 
-# Transcription
-abstract type InteressoTranscription{F<:AbstractFloat, M<:InteressoMesh} end
-include("transcription/bounds.jl")
-include("transcription/interpolation.jl")
-#include("transcription/warmstarting.jl")
-include("transcription/leastSquares.jl")
-#include("transcription/collocation.jl")
-export LeastSquares
+include("transcription/dyn_funs.jl")
+include("transcription/bou_funs.jl")
+include("transcription/ingredients.jl")
+include("transcription/sol_dyn_var.jl")
+include("transcription/sol_derivative.jl")
 
-# Refinement
-#abstract type InteressoRefinement{F<:AbstractFloat, T<:InteressoTranscription} end
-#include("refinement/no.jl")
-#include("refinement/convergent.jl")
-#include("refinement/predictive.jl")
-
-# Solve
-#include("solve.jl")
+export AbstractInterpolant, PiecewiseInterpolant, LagrangeInterpolant
+export AbstractPoints, AbstractPointsMesh, LGRPoints
+export AbstractMethod, AbstractMethodMesh, Collocation
+export AbstractBounds, AbstractBoundsMesh, SampledBounds, BernsteinBounds
+export AbstractIntervals, AbstractIntervalsMesh, FixedIntervals, FlexibleIntervals
 
 end

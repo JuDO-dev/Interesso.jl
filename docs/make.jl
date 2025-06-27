@@ -1,7 +1,25 @@
 using Interesso
 using Documenter
+using DocumenterInterLinks
 
 DocMeta.setdocmeta!(Interesso, :DocTestSetup, :(using Interesso); recursive=true)
+
+const _PAGES = [
+    "Home" => "index.md",
+    "Examples" => "examples.md",
+    "API Reference" => [
+        "reference/interpolants.md",
+        "reference/points.md",
+        "reference/methods.md",
+        "reference/bounds.md",
+        "reference/intervals.md",
+    ],
+    "Changelog" => "changelog.md",
+]
+
+const _LINKS = InterLinks(
+    "DOI" => "https://judo.dev/DynOptInterface.jl/dev/objects.inv"
+)
 
 makedocs(;
     modules=[Interesso],
@@ -13,9 +31,8 @@ makedocs(;
         canonical="https://JuDO-dev.github.io/Interesso.jl",
         assets=String[],
     ),
-    pages=[
-        "Home" => "index.md",
-    ],
+    pages=_PAGES,
+    plugins=[_LINKS],
 )
 
 deploydocs(;
