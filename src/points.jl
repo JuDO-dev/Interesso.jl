@@ -20,6 +20,7 @@ function build_points_mesh(::AbstractPoints, ::Real, ::Real)::AbstractPointsMesh
 
 get_points_dif_length(mesh::AbstractPointsMesh) = length(mesh.points_dif)
 get_points_alg_length(mesh::AbstractPointsMesh) = length(mesh.points_alg)
+get_points_quad_length(mesh::AbstractPointsMesh) = length(mesh.points_alg)
 
 
 ## Legendre-Gauss-Radau
@@ -93,6 +94,54 @@ end
 mesh_type(::Type{LGRPoints}) = LGRPointsMesh
 
 build_points_mesh(points::LGRPoints, t_a::Real, t_b::Real) = LGRPointsMesh(points, t_a, t_b)
+
+
+## Gauss-Legendre
+
+struct GLPoints <: AbstractPoints
+    points_alg_τ::Vector{Float64}
+    quad_weights_τ::Vector{Float64}
+
+    function GLPoints(number::Integer)
+        
+        if !(number ≥ 1)
+            throw(DomainError("Please ensure number ≥ 1."))
+        end
+
+        points_alg_τ, quad_weights_τ = FGQ.gausslegendre(number)
+
+        return new(points_alg_τ, quad_weights_τ)
+    end
+end
+
+
+struct GLPointsMesh <: AbstractPointsMesh
+
+    t_a::Float64
+    t_b::Float64
+
+    points_alg::Vector{Float64}
+
+    quad_weights::Vector{Float64}
+
+    function GLPointsMesh(points::GLPoints, t_a::Real, t_b::Real)
+
+        _throw_if_invalid_bounds(t_a, t_b)
+
+        Δt = t_b - t_a
+        Σt = t_a + t_b
+
+        points_alg = [0.5 * Δt * p_j .+ 0.5 * Σt for p_j in points.points_alg_τ]
+
+        quad_weights = [0.5 * Δt * w_j for w_j in points.quad_weights_τ]
+
+        return new(t_a, t_b, points_alg, quad_weights)
+    end
+end
+
+mesh_type(::Type{GLPoints}) = GLPointsMesh
+
+build_method_mesh(points::GLPoints, mesh::AbstractPointsMesh) = GLPointsMesh(points, mesh.t_a, mesh.t_b)
 
 function _throw_if_invalid_bounds(lower::Real, upper::Real)
 

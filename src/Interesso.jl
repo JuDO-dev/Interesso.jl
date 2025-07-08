@@ -21,14 +21,15 @@ include("DOI/solutions.jl")
 
 include("transcription/dyn_funs.jl")
 include("transcription/bou_funs.jl")
+include("transcription/objective.jl")
 include("transcription/ingredients.jl")
 include("transcription/sol_dyn_var.jl")
 include("transcription/sol_derivative.jl")
 
 export AbstractInterpolant, PiecewiseInterpolant, LagrangeInterpolant
 export AbstractPoints, AbstractPointsMesh, LGRPoints
-export AbstractMethod, AbstractMethodMesh, Collocation
-export AbstractBounds, AbstractBoundsMesh, SampledBounds, BernsteinBounds
+export AbstractMethod, AbstractMethodMesh, Collocation, PenaltyIR
+export AbstractBounds, AbstractBoundsMesh, ExactBounds, SampledBounds, BernsteinBounds
 export AbstractIntervals, AbstractIntervalsMesh, FixedIntervals, FlexibleIntervals
 
 end

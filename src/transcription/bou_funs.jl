@@ -100,7 +100,11 @@ function transcribe_bou_fun(
     )
 end
 
-function transcribe_integral(integrand::NDF, model::Optimizer, mesh::FixedIntervalsMesh)
+function transcribe_integral(
+    integrand::NDF,
+    model::Optimizer,
+    mesh::FixedIntervalsMesh{PM,MM,BM}
+) where {PM,MM<:CollocationMesh,BM}
 
     n_h = get_intervals_length(mesh)
     n_p_alg = get_points_alg_length(mesh)
@@ -114,13 +118,8 @@ function transcribe_integral(integrand::NDF, model::Optimizer, mesh::FixedInterv
                 [
                     mesh.points_meshes[i].quad_weights[q],
                     transcribe_dyn_fun(
-                        integrand,
-                        i,
-                        q,
-                        model.phase_vars,
-                        model.dyn_var_vars,
-                        model.dif_dyn_vars,
-                        mesh,
+                        integrand, i, q, model.phase_vars, model.dyn_var_vars,
+                        model.dif_dyn_vars, mesh,
                     ),
                 ],
             ) for q in 1:n_p_alg],
@@ -128,7 +127,11 @@ function transcribe_integral(integrand::NDF, model::Optimizer, mesh::FixedInterv
     )
 end
 
-function transcribe_integral(integrand::NDF, model::Optimizer, mesh::FlexibleIntervalsMesh)
+function transcribe_integral(
+    integrand::NDF,
+    model::Optimizer,
+    mesh::FlexibleIntervalsMesh{PM,MM,BM}
+) where {PM,MM<:CollocationMesh,BM}
 
     n_h = get_intervals_length(mesh)
     n_p_alg = get_points_alg_length(mesh)
@@ -163,6 +166,72 @@ function transcribe_integral(integrand::NDF, model::Optimizer, mesh::FlexibleInt
     )
 end
 
+function transcribe_integral(
+    integrand::NDF,
+    model::Optimizer,
+    mesh::FixedIntervalsMesh{PM,MM,BM}
+) where {PM,MM<:PenaltyIRMesh,BM}
+
+    n_h = get_intervals_length(mesh)
+    n_p_quad = get_points_quad_length(mesh)
+
+    return MOI.ScalarNonlinearFunction(
+        :+,
+        [MOI.ScalarNonlinearFunction(
+            :+,
+            [MOI.ScalarNonlinearFunction(
+                :*,
+                [
+                    mesh.points_meshes[i].quad_weights[q],
+                    transcribe_dyn_fun(
+                        integrand, i, q, model.phase_vars, model.dyn_var_vars,
+                        model.dif_dyn_vars, mesh,
+                    ),
+                ],
+            ) for q in 1:n_p_quad],
+        ) for i in 1:n_h],
+    )
+end
+
+function transcribe_integral(
+    integrand::NDF,
+    model::Optimizer,
+    mesh::FlexibleIntervalsMesh{PM,MM,BM}
+) where {PM,MM<:PenaltyIRMesh,BM}
+
+    n_h = get_intervals_length(mesh)
+    n_p_quad = get_points_quad_length(mesh)
+    t_0 = mesh.fixed.points_meshes[1].t_a
+    t_f = mesh.fixed.points_meshes[end].t_b
+
+    flex_vars = model.phase_vars[DOI.phase_index(integrand)]
+
+    Δt_1 = 1.0 * flex_vars[1] - t_0
+    Δt_n_h = t_f - 1.0 * flex_vars[end]
+    Δt_inner = [1.0 * flex_vars[i] - 1.0 * flex_vars[i-1] for i in 2:(n_h-1)]
+    Δt = vcat(Δt_1, Δt_inner, Δt_n_h)
+
+    return MOI.ScalarNonlinearFunction(
+        :+,
+        [MOI.ScalarNonlinearFunction(
+            :*,
+            Any[0.5, Δt[i], MOI.ScalarNonlinearFunction(
+                :+,
+                [MOI.ScalarNonlinearFunction(
+                    :*,
+                    [
+                        mesh.method_mesh.quad_points_mesh.quad_weights[q],
+                        transcribe_dyn_fun(
+                            integrand, i, q, model.phase_vars, model.dyn_var_vars,
+                            model.dif_dyn_vars, mesh,
+                        ),
+                    ],
+                ) for q in 1:n_p_quad],  
+            )],
+        ) for i in 1:n_h],
+    )
+end
+
 # Bolza
 function transcribe_bou_fun(bolza::OBJ, model::Optimizer, meshes::MESHES)
     return MOI.ScalarNonlinearFunction(
@@ -171,5 +240,87 @@ function transcribe_bou_fun(bolza::OBJ, model::Optimizer, meshes::MESHES)
             transcribe_bou_fun(bolza.bou_fun, model, meshes),
             transcribe_bou_fun(bolza.integral, model, meshes),
         ],
+    )
+end
+
+function transcribe_dif_least_square(
+    model::Optimizer,
+    phase::PHS,
+    mesh::AbstractIntervalsMesh{PM,MM,BM},
+) where {PM,MM<:PenaltyIRMesh,BM}
+
+    dif_cons = model.dif_cons[phase]
+
+    n_h = get_intervals_length(mesh)
+    n_p_quad = get_points_quad_length(mesh)
+
+    return MOI.ScalarNonlinearFunction(
+        :+,
+        [   
+            MOI.ScalarNonlinearFunction(
+                :^,
+                [
+                    transcribe_dyn_fun(dif_fun, i, q, model.phase_vars,
+                        model.dyn_var_vars, model.dif_dyn_vars, mesh
+                    ),
+                    2.0
+                ] 
+            ) for (dif_fun, _) in values(dif_cons) for i in 1:n_h for q in 1:n_p_quad
+        ]
+    ) 
+end
+
+function transcribe_alg_least_square(
+    model::Optimizer,
+    phase::PHS,
+    mesh::AbstractIntervalsMesh{PM,MM,BM},
+) where {PM,MM<:PenaltyIRMesh,BM}
+
+    alg_cons = model.alg_cons[phase]
+
+    n_h = get_intervals_length(mesh)
+    n_p_quad = get_points_quad_length(mesh)
+
+    return MOI.ScalarNonlinearFunction(
+        :+,
+        [
+            MOI.ScalarNonlinearFunction(
+                :^,
+                [
+                    transcribe_dyn_fun(alg_fun, i, q, model.phase_vars,
+                        model.dyn_var_vars, model.dif_dyn_vars, mesh
+                    ), 
+                    2.0
+                ]
+            ) for (alg_fun, _) in values(alg_cons) for i in 1:n_h for q in 1:n_p_quad
+        ]
+    )
+end
+
+function transcribe_dyn_least_square(
+    model::Optimizer,
+    phase::PHS,
+    mesh::AbstractIntervalsMesh{PM,MM,BM},
+) where {PM,MM<:PenaltyIRMesh,BM}
+
+    return MOI.ScalarNonlinearFunction(
+        :+,
+        [
+            transcribe_dif_least_square(model, phase, mesh),
+            transcribe_alg_least_square(model, phase, mesh),
+        ]
+    )
+end
+
+
+function transcribe_dyn_least_square(
+    model::Optimizer,
+    meshes::MESHES,
+)
+    return MOI.ScalarNonlinearFunction(
+        :+,
+        [
+            transcribe_dyn_least_square(model, phase, mesh) for (phase, mesh) in meshes if mesh.method_mesh isa PenaltyIRMesh
+        ]
     )
 end

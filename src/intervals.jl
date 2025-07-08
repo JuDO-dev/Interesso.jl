@@ -87,6 +87,7 @@ get_bounds_mesh(mesh::FixedIntervalsMesh) = mesh.bounds_mesh
 
 get_points_dif_length(mesh::FixedIntervalsMesh) = get_points_dif_length(mesh.points_meshes[1])
 get_points_alg_length(mesh::FixedIntervalsMesh) = get_points_alg_length(mesh.points_meshes[1])
+get_points_quad_length(mesh::FixedIntervalsMesh) = get_points_quad_length(mesh.method_meshes[1].quad_points_mesh)
 
 
 function build_intervals_mesh(
@@ -166,6 +167,7 @@ get_bounds_mesh(mesh::FlexibleIntervalsMesh) = get_bounds_mesh(mesh.fixed)
 
 get_points_dif_length(mesh::FlexibleIntervalsMesh) = get_points_dif_length(mesh.fixed)
 get_points_alg_length(mesh::FlexibleIntervalsMesh) = get_points_alg_length(mesh.fixed)
+get_points_quad_length(mesh::FlexibleIntervalsMesh) = get_points_quad_length(mesh.fixed)
 
 function build_intervals_mesh(
     intervals::FlexibleIntervals,

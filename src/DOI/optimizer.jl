@@ -53,7 +53,7 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
         default_intervals::AbstractIntervals=FixedIntervals(1),
         default_points::AbstractPoints=LGRPoints(5),
         default_method::AbstractMethod=Collocation(),
-        default_bounds::AbstractBounds=SampledBounds(),
+        default_bounds::AbstractBounds=ExactBounds(),
     )
 
         return new(
