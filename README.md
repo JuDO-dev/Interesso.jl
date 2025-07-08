@@ -1,7 +1,7 @@
 [//]: Logo
 <p align="center">
 <img
-    src="./docs/src/assets/logo256px.svg"
+    src="./docs/src/assets/logo.svg"
     width=256px
     >
 </p>

@@ -13,8 +13,8 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
     phase_finals::OrderedDict{PHS,Float64}
     dyn_vars::OrderedDict{PHS,OrderedSet{DYN_VAR}}
     dyn_var_bounds::OrderedDict{PHS,OrderedDict{DYN_VAR,IV64}}
-    dyn_var_initials::OrderedDict{PHS,OrderedDict{DYN_VAR,EQ64}}
-    dyn_var_finals::OrderedDict{PHS,OrderedDict{DYN_VAR,EQ64}}
+    dyn_var_initials::OrderedDict{PHS,OrderedDict{DYN_VAR,IV64}}
+    dyn_var_finals::OrderedDict{PHS,OrderedDict{DYN_VAR,IV64}}
     linkages::LINKAGES
     dif_dyn_vars::OrderedSet{DYN_VAR}
     dif_cons::OrderedDict{PHS,DIF_CONS}
@@ -67,8 +67,8 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
             OrderedDict{PHS,Float64}(),
             OrderedDict{PHS,OrderedSet{DYN_VAR}}(),
             OrderedDict{PHS,OrderedDict{DYN_VAR,IV64}}(),
-            OrderedDict{PHS,OrderedDict{DYN_VAR,EQ64}}(),
-            OrderedDict{PHS,OrderedDict{DYN_VAR,EQ64}}(),
+            OrderedDict{PHS,OrderedDict{DYN_VAR,IV64}}(),
+            OrderedDict{PHS,OrderedDict{DYN_VAR,IV64}}(),
             LINKAGES(),
             OrderedSet{DYN_VAR}(),
             OrderedDict{PHS,DIF_CONS}(),
