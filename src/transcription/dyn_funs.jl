@@ -47,7 +47,7 @@ function transcribe_dyn_fun(
     ::AbstractSet{DYN_VAR},
     mesh::FixedIntervalsMesh,
 )
-    return mesh.points_meshes[i].points_alg[q]
+    return mesh.method_meshes[i].quad_points_mesh.points_alg[q]
 end
 
 function transcribe_dyn_fun(
@@ -74,7 +74,7 @@ function transcribe_dyn_fun(
         t_b = flex_vars[i + 1]
     end
 
-    return 0.5 * (t_a + t_b) + 0.5 * (t_b - t_a) * mesh.points_mesh.points_alg[q]
+    return 0.5 * (t_a + t_b) + 0.5 * (t_b - t_a) * mesh.method_mesh.quad_points_mesh.points_alg[q]
 end
 
 # Dynamic Variable
@@ -84,10 +84,20 @@ function transcribe_dyn_fun(
     q::Integer,
     ::PHS_VARS,
     dyn_var_vars::DYN_VAR_VARS,
-    ::AbstractSet{DYN_VAR},
-    ::AbstractIntervalsMesh,
+    dif_dyn_vars::AbstractSet{DYN_VAR},
+    mesh::AbstractIntervalsMesh,
 )
-    return dyn_var_vars[dyn_var][i][q]
+    """
+    need to do interpolations to dyn_var_vars, if least-square
+    interpolant dyn_var_vars[dyn_var][i], where should be a vector of length(points.alg), to become a vector of quad
+    need to save the interpolation matrix somewhere
+    """
+    if dyn_var in dif_dyn_vars
+        points_quad = mesh.method_mesh.interpolant.interpolant_dif * dyn_var_vars[dyn_var][i]
+    else
+        points_quad = mesh.method_mesh.interpolant.interpolant_alg * dyn_var_vars[dyn_var][i]
+    end
+    return points_quad[q]
 end
 
 # Nonlinear Dynamic Function
@@ -121,10 +131,12 @@ function transcribe_dyn_fun(
     vars = dyn_var_vars[dif_fun.dyn_var]
     n_p_dif = get_points_dif_length(mesh)
 
+    differentiation = mesh.method_mesh.interpolant.interpolant_dif * mesh.points_meshes[i].differentiation
+
     return MOI.ScalarNonlinearFunction(:-, Any[
-        sum(mesh.points_meshes[i].differentiation[q,k] * vars[i][k] for k in 1:n_p_dif),
-        transcribe_dyn_fun(dif_fun.dyn_fun, i, q, phase_vars, dyn_var_vars, dif_dyn_vars, 
-            mesh
+        sum(differentiation[q,k] * vars[i][k] for k in 1:n_p_dif),
+        transcribe_dyn_fun(
+            dif_fun.dyn_fun, i, q, phase_vars, dyn_var_vars, dif_dyn_vars, mesh,
         ),
     ])
 end
@@ -154,8 +166,15 @@ function transcribe_dyn_fun(
         Δt = 1.0 * flex_vars[i] - 1.0 * flex_vars[i-1]
     end
 
+    """
+    differentiation matrix here should be equivlent to mesh.Dx * mesh.QX in Tapir
+
+    where Dx is a square matrix and QX is a matrix expanding X to the number of Q, so (num_quad, num_dif)
+    """
+    differentiation = mesh.method_mesh.interpolant.interpolant_dif * mesh.points_mesh.differentiation
+
     return MOI.ScalarNonlinearFunction(:-, Any[
-        sum(2.0 * mesh.points_mesh.differentiation[q,k] * vars[i][k] for k in 1:n_p_dif),
+        sum(2.0 * differentiation[q,k] * vars[i][k] for k in 1:n_p_dif),
         MOI.ScalarNonlinearFunction(:*, Any[
             Δt,
             transcribe_dyn_fun(
@@ -163,4 +182,5 @@ function transcribe_dyn_fun(
             ),
         ]),
     ])
+
 end

@@ -22,21 +22,39 @@ function transcribe_phase!(model::Optimizer, phase::PHS, mesh::FlexibleIntervals
     MOI.add_constraint(
         model.inner, 
         1.0 * flex_vars[1] - t_0,
-        MOI.Interval(mesh.Δt_min, mesh.Δt_max),
+        MOI.LessThan(mesh.Δt_max),
+    )
+
+    MOI.add_constraint(
+        model.inner, 
+        - 1.0 * flex_vars[1] + t_0,
+        MOI.LessThan(- mesh.Δt_min),
     )
 
     for i in 2:(n_h - 1)
         MOI.add_constraint(
             model.inner,
             1.0 * flex_vars[i] - 1.0 * flex_vars[i-1],
-            MOI.Interval(mesh.Δt_min, mesh.Δt_max),
+            MOI.LessThan(mesh.Δt_max),
+        )
+
+        MOI.add_constraint(
+            model.inner,
+            - 1.0 * flex_vars[i] + 1.0 * flex_vars[i-1],
+            MOI.LessThan(- mesh.Δt_min),
         )
     end
 
     MOI.add_constraint(
         model.inner,
         t_f - 1.0 * flex_vars[end],
-        MOI.Interval(mesh.Δt_min, mesh.Δt_max)
+        MOI.LessThan(mesh.Δt_max)
+    )
+
+    MOI.add_constraint(
+        model.inner,
+        - t_f + 1.0 * flex_vars[end],
+        MOI.LessThan(- mesh.Δt_min)
     )
 
     model.phase_vars[phase] = flex_vars
@@ -121,7 +139,7 @@ function transcribe_bounds!(
     model::Optimizer,
     phase::PHS,
     mesh::AbstractIntervalsMesh{PM,MM,BM},
-) where {PM,MM,BM<:SampledBoundsMesh}
+) where {PM,MM,BM<:ExactBoundsMesh}
 
     n_h = get_intervals_length(mesh)
     n_p_dif = get_points_dif_length(mesh)
@@ -141,6 +159,47 @@ function transcribe_bounds!(
             for i in 1:n_h
                 for j in 1:n_p_alg
                     MOI.add_constraint(model.inner, vars[i][j], set)
+                end
+            end
+        end
+    end
+    return nothing
+end
+
+function transcribe_bounds!(
+    model::Optimizer,
+    phase::PHS,
+    mesh::AbstractIntervalsMesh{PM,MM,BM},
+) where {PM,MM,BM<:SampledBoundsMesh}
+
+    n_h = get_intervals_length(mesh)
+    n_p_dif = get_points_dif_length(mesh)
+    n_p_alg = get_points_alg_length(mesh)
+
+    bounds_mesh = get_bounds_mesh(mesh)
+
+    for (dyn_var, set) in model.dyn_var_bounds[phase]
+
+        vars = model.dyn_var_vars[dyn_var]
+
+        if dyn_var in model.dif_dyn_vars
+            for i in 1:n_h
+                for j in 1:n_p_dif
+                    MOI.add_constraint(
+                        model.inner,
+                        sum(bounds_mesh.sampled_dif[j,k] * vars[i][k] for k in 1:n_p_dif),
+                        set,
+                    )
+                end
+            end
+        else
+            for i in 1:n_h
+                for j in 1:n_p_alg
+                    MOI.add_constraint(
+                        model.inner,
+                        sum(bounds_mesh.sampled_alg[j,k] * vars[i][k] for k in 1:n_p_alg),
+                        set,
+                    )
                 end
             end
         end
@@ -192,8 +251,9 @@ end
 function transcribe_dif_cons!(
     model::Optimizer,
     phase::PHS,
-    mesh::AbstractIntervalsMesh,
-)
+    mesh::AbstractIntervalsMesh{PM,MM,BM},
+) where {PM,MM<:CollocationMesh,BM}
+
     dif_cons = model.dif_cons[phase]
 
     n_h = get_intervals_length(mesh)
@@ -204,10 +264,10 @@ function transcribe_dif_cons!(
             for j in 1:n_p_alg
                 MOI.add_constraint(
                     model.inner,
-                    transcribe_dyn_fun(dif_fun, i, j, model.phase_vars, model.dyn_var_vars,
-                        model.dif_dyn_vars, mesh
+                    transcribe_dyn_fun(dif_fun, i, j, model.phase_vars,
+                        model.dyn_var_vars, model.dif_dyn_vars, mesh
                     ),
-                    set
+                    set,
                 )
             end
         end
@@ -228,13 +288,34 @@ function transcribe_alg_cons!(
     for (alg_fun, set) in values(alg_cons)
         for i in 1:n_h
             for q in 1:n_p_alg
-                MOI.add_constraint(model.inner, transcribe_dyn_fun(
-                    alg_fun, i, q, model.phase_vars, model.dyn_var_vars, model.dif_dyn_vars,
-                    mesh,
-                ), set)
+                MOI.add_constraint(
+                    model.inner,
+                    transcribe_dyn_fun(alg_fun, i, q, model.phase_vars,
+                        model.dyn_var_vars, model.dif_dyn_vars, mesh
+                    ), 
+                    set,
+                )
             end
         end
     end
+    return nothing
+end
+
+function transcribe_dif_cons!(
+    ::Optimizer,
+    ::PHS,
+    ::AbstractIntervalsMesh{PM,MM,BM},
+) where {PM,MM<:PenaltyIRMesh,BM}
+
+    return nothing
+end
+
+function transcribe_alg_cons!(
+    ::Optimizer,
+    ::PHS,
+    ::AbstractIntervalsMesh{PM,MM,BM},
+) where {PM,MM<:PenaltyIRMesh,BM}
+
     return nothing
 end
 
@@ -279,19 +360,6 @@ function transcribe_linkages!(
                 meshes[DOI.phase_index(linkage.dyn_fun_initial)],
             ),
             set,
-        )
-    end
-    return nothing
-end
-
-function transcribe_objective!(model::Optimizer, meshes::MESHES)
-    
-    if !(model.objective isa Nothing)
-
-        MOI.set(
-            model.inner,
-            MOI.ObjectiveFunction{MOI.ScalarNonlinearFunction}(),
-            transcribe_bou_fun(model.objective, model, meshes),
         )
     end
     return nothing
