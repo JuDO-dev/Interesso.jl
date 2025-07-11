@@ -175,6 +175,7 @@ function transcribe_bounds!(
     n_h = get_intervals_length(mesh)
     n_p_dif = get_points_dif_length(mesh)
     n_p_alg = get_points_alg_length(mesh)
+    n_p_samp = get_points_samp_length(mesh)
 
     bounds_mesh = get_bounds_mesh(mesh)
 
@@ -184,7 +185,7 @@ function transcribe_bounds!(
 
         if dyn_var in model.dif_dyn_vars
             for i in 1:n_h
-                for j in 1:n_p_dif
+                for j in 1:n_p_samp
                     MOI.add_constraint(
                         model.inner,
                         sum(bounds_mesh.sampled_dif[j,k] * vars[i][k] for k in 1:n_p_dif),
@@ -194,7 +195,7 @@ function transcribe_bounds!(
             end
         else
             for i in 1:n_h
-                for j in 1:n_p_alg
+                for j in 1:n_p_samp
                     MOI.add_constraint(
                         model.inner,
                         sum(bounds_mesh.sampled_alg[j,k] * vars[i][k] for k in 1:n_p_alg),
