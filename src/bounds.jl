@@ -16,24 +16,33 @@ build_bounds_mesh(::ExactBounds, ::AbstractPoints) = ExactBoundsMesh()
 
 # Sampled Bounds
 
-struct SampledBounds     <: AbstractBounds     end
+struct SampledBounds{T<:AbstractPoints} <: AbstractBounds
+    samp_points::T
+end
+
+SampledBounds(number::Integer) = SampledBounds(CGLPoints(number))
+
 struct SampledBoundsMesh <: AbstractBoundsMesh 
 
     sampled_dif::Matrix{Float64}
     sampled_alg::Matrix{Float64}
 
-    function SampledBoundsMesh(num_samp_dif::Integer, num_samp_alg::Integer)
+    function SampledBoundsMesh(points::AbstractPoints, samp_points::AbstractPoints)
 
-        if !all(num_samp_dif .> 0)
-            throw(DomainError(num_samp_dif, "Please ensure a positive number of sampled_dif."))
+        bary_weights_dif = _barycentric_weights(points.points_dif_τ)
+        bary_weights_alg = _barycentric_weights(points.points_alg_τ)
 
-        elseif !all(num_samp_alg .> 0)
-            throw(DomainError(num_samp_alg, "Please ensure a positive number of sampled_alg."))
+        sampled_dif = _interpolation_matrix(
+            points.points_dif_τ,
+            bary_weights_dif,
+            samp_points.points_alg_τ,
+        )
 
-        else
-            sampled_dif = _chebyshev_gauss_lobatto(num_samp_dif)
-            sampled_alg = _chebyshev_gauss_lobatto(num_samp_alg)
-        end
+        sampled_alg = _interpolation_matrix(
+            points.points_alg_τ,
+            bary_weights_alg,
+            samp_points.points_alg_τ,
+        )
 
         return new(sampled_dif, sampled_alg)
     end
@@ -42,12 +51,9 @@ end
 
 mesh_type(::Type{SampledBounds}) = SampledBoundsMesh
 
-function build_bounds_mesh(::SampledBounds, points::AbstractPoints)
+build_bounds_mesh(bounds::SampledBounds, points::AbstractPoints) = SampledBoundsMesh(points, bounds.samp_points)
 
-    return SampledBoundsMesh(num_samp_dif, num_samp_alg)
-end
-
-_chebyshev_gauss_lobatto(n_τ::Integer) = [cos(π * j / n_τ) for j in n_τ:-1:0]
+get_points_samp_length(mesh::AbstractBoundsMesh) = size(mesh.sampled_alg, 1)
 
 
 # Bernstein Bounds

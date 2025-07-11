@@ -22,7 +22,6 @@ get_points_dif_length(mesh::AbstractPointsMesh) = length(mesh.points_dif)
 get_points_alg_length(mesh::AbstractPointsMesh) = length(mesh.points_alg)
 get_points_quad_length(mesh::AbstractPointsMesh) = length(mesh.points_alg)
 
-
 ## Legendre-Gauss-Radau
 
 """
@@ -142,6 +141,24 @@ end
 mesh_type(::Type{GLPoints}) = GLPointsMesh
 
 build_method_mesh(points::GLPoints, mesh::AbstractPointsMesh) = GLPointsMesh(points, mesh.t_a, mesh.t_b)
+
+
+##  Chebyshev-Gauss-Lobatto
+
+struct CGLPoints <: AbstractPoints
+    points_alg_τ::Vector{Float64}
+
+    function CGLPoints(number::Integer)
+        
+        if !(number ≥ 1)
+            throw(DomainError("Please ensure number ≥ 1."))
+        end
+
+        points_alg_τ = cos.((number-1:-1:0) .* π ./ (number-1))
+
+        return new(points_alg_τ)
+    end
+end
 
 function _throw_if_invalid_bounds(lower::Real, upper::Real)
 
