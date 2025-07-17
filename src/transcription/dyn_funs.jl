@@ -167,7 +167,7 @@ function transcribe_dyn_fun(
     end
 
     """
-    differentiation matrix here should be equivlent to mesh.Dx * mesh.QX in Tapir
+    differentiation matrix here should be equivalent to mesh.Dx * mesh.QX in Tapir
 
     where Dx is a square matrix and QX is a matrix expanding X to the number of Q, so (num_quad, num_dif)
     """

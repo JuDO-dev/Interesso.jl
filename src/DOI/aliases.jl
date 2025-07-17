@@ -6,6 +6,7 @@ const NBF = DOI.NonlinearBoundaryFunction
 
 const EQ64 = MOI.EqualTo{Float64}
 const IV64 = MOI.Interval{Float64}
+const EI64 = Union{EQ64, IV64}
 
 const STARTS = OrderedDict{DYN_VAR,DOI.AbstractDynamicSolution}
 

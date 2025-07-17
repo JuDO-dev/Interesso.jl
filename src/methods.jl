@@ -6,7 +6,7 @@ abstract type AbstractMethodMesh end
 function build_method_mesh end
 
 
-# Quadture Interpolation
+# Quadrature Interpolation
 
 struct PM_MM_Interpolation <: AbstractInterpolant
     interpolant_dif::Matrix{Float64}

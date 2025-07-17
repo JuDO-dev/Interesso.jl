@@ -1,7 +1,7 @@
 import MathOptInterface as MOI
 import DynOptInterface as DOI
 using Interesso
-using Plots
+using SimplePlots
 using SLOW
 
 # Problem Constants
@@ -141,7 +141,13 @@ model = Interesso.Optimizer(
     default_intervals=FlexibleIntervals(4, 0.5),
     default_points=LGRPoints(8),
     default_method=PenaltyIR(10),
+    default_bounds=SampledBounds(20)
 )
 u_sol, r_sol, v_sol = cart_pole(model)
 
-plot(tau -> r_sol(tau), xlims=(t_0, t_f))
+# plot(tau -> r_sol(tau), xlims=(t_0, t_f))
+
+xs = range(t_0, t_f, length=200)
+ys = r_sol.(xs)
+plt = plot(xs, ys, xlims=(t_0, t_f))
+display(plt)

@@ -1,7 +1,7 @@
 import MathOptInterface as MOI
 import DynOptInterface as DOI
 using Interesso
-using Plots
+using SimplePlots
 using SLOW
 
 # Problem Constants
@@ -101,11 +101,16 @@ function cart_pole(model::Interesso.Optimizer)
 end
 
 model = Interesso.Optimizer(
-    # inner = SLOW.Optimizer(),
+    inner = SLOW.Optimizer(),
     default_intervals=FlexibleIntervals(4, 0.5),
     default_points=LGRPoints(8),
     default_method=PenaltyIR(10),
 )
 u_sol, x_sol, v_sol = cart_pole(model)
 
-plot(tau -> x_sol(tau), xlims=(0.0, 10.0))
+# plot(tau -> x_sol(tau), xlims=(0.0, 10.0))
+
+xs = range(0.0, 10.0, length=200)
+ys = x_sol.(xs)
+plt = plot(xs, ys, xlims=(0.0, 10.0))
+display(plt)
