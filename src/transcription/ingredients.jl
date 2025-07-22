@@ -22,39 +22,21 @@ function transcribe_phase!(model::Optimizer, phase::PHS, mesh::FlexibleIntervals
     MOI.add_constraint(
         model.inner, 
         1.0 * flex_vars[1] - t_0,
-        MOI.LessThan(mesh.Δt_max),
-    )
-
-    MOI.add_constraint(
-        model.inner, 
-        - 1.0 * flex_vars[1] + t_0,
-        MOI.LessThan(- mesh.Δt_min),
+        MOI.Interval(mesh.Δt_min, mesh.Δt_max),
     )
 
     for i in 2:(n_h - 1)
         MOI.add_constraint(
             model.inner,
             1.0 * flex_vars[i] - 1.0 * flex_vars[i-1],
-            MOI.LessThan(mesh.Δt_max),
-        )
-
-        MOI.add_constraint(
-            model.inner,
-            - 1.0 * flex_vars[i] + 1.0 * flex_vars[i-1],
-            MOI.LessThan(- mesh.Δt_min),
+            MOI.Interval(mesh.Δt_min, mesh.Δt_max),
         )
     end
 
     MOI.add_constraint(
         model.inner,
         t_f - 1.0 * flex_vars[end],
-        MOI.LessThan(mesh.Δt_max)
-    )
-
-    MOI.add_constraint(
-        model.inner,
-        - t_f + 1.0 * flex_vars[end],
-        MOI.LessThan(- mesh.Δt_min)
+        MOI.Interval(mesh.Δt_min, mesh.Δt_max)
     )
 
     model.phase_vars[phase] = flex_vars
@@ -279,8 +261,9 @@ end
 function transcribe_alg_cons!(
     model::Optimizer,
     phase::PHS,
-    mesh::AbstractIntervalsMesh,
-)
+    mesh::AbstractIntervalsMesh{PM,MM,BM},
+) where {PM,MM<:CollocationMesh,BM}
+
     alg_cons = model.alg_cons[phase]
 
     n_h = get_intervals_length(mesh)
@@ -303,20 +286,42 @@ function transcribe_alg_cons!(
 end
 
 function transcribe_dif_cons!(
-    ::Optimizer,
-    ::PHS,
-    ::AbstractIntervalsMesh{PM,MM,BM},
+    model::Optimizer,
+    phase::PHS,
+    mesh::AbstractIntervalsMesh{PM,MM,BM},
 ) where {PM,MM<:PenaltyIRMesh,BM}
 
+    n_h = get_intervals_length(mesh)
+    for i = 1:n_h
+        grad_res_funcs = transcribe_grad_dyn_least_square(model, i, phase, mesh)
+        for f in grad_res_funcs
+            MOI.add_constraint(
+                model.inner,
+                f,
+                MOI.Interval(-1e-2, 1e-2),
+            )
+            push!(model.dif_res_funcs, f)
+        end
+    end
     return nothing
 end
 
 function transcribe_alg_cons!(
-    ::Optimizer,
-    ::PHS,
-    ::AbstractIntervalsMesh{PM,MM,BM},
+    model::Optimizer,
+    phase::PHS,
+    mesh::AbstractIntervalsMesh{PM,MM,BM},
 ) where {PM,MM<:PenaltyIRMesh,BM}
 
+    n_h = get_intervals_length(mesh)
+    for i = 1:n_h
+        f = transcribe_dyn_least_square(model, i, phase, mesh)
+        MOI.add_constraint(
+            model.inner,
+            f,
+            MOI.LessThan(1e0),
+        )
+        push!(model.res_funcs, f)
+    end
     return nothing
 end
 

@@ -1,5 +1,5 @@
 mutable struct Optimizer <: MOI.AbstractOptimizer
-    
+
     # Attributes
     default_intervals::AbstractIntervals
     default_points::AbstractPoints
@@ -48,6 +48,10 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
     sol_dyn_vars::OrderedDict{PHS,SOLS{DYN_VAR}}
     sol_derivatives::OrderedDict{PHS,SOLS{DOI.Derivative{DYN_VAR}}}
 
+    # Analyze
+    dif_res_funcs::Vector{MOI.AbstractFunction}
+    res_funcs::Vector{MOI.AbstractFunction}
+
     function Optimizer(;
         inner::MOI.ModelLike=Ipopt.Optimizer(),
         default_intervals::AbstractIntervals=FixedIntervals(1),
@@ -55,6 +59,8 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
         default_method::AbstractMethod=Collocation(),
         default_bounds::AbstractBounds=ExactBounds(),
     )
+        
+        inner = MOI.Bridges.full_bridge_optimizer(inner, Float64)
 
         return new(
             default_intervals,
@@ -92,6 +98,8 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
             OrderedDict{PHS,MOI.ScalarNonlinearFunction}(),
             OrderedDict{PHS,SOLS{DYN_VAR}}(),
             OrderedDict{PHS,SOLS{DOI.Derivative{DYN_VAR}}}(),
+            Vector{MOI.AbstractFunction}(),
+            Vector{MOI.AbstractFunction}(),
         )
     end
 end

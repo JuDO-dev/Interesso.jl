@@ -1,7 +1,7 @@
 import MathOptInterface as MOI
 import DynOptInterface as DOI
 using Interesso
-using SimplePlots
+using Plots
 using SLOW
 
 # Problem Constants
@@ -133,21 +133,28 @@ function cart_pole(model::Interesso.Optimizer)
     r_sol = MOI.get(model, DOI.DynamicVariableSolution(), r)
     v_sol = MOI.get(model, DOI.DynamicVariableSolution(), v)
 
-    return u_sol, r_sol, v_sol
+    return u_sol, r_sol, v_sol, model
 end
 
 model = Interesso.Optimizer(
     # inner = SLOW.Optimizer(),
-    default_intervals=FlexibleIntervals(4, 0.5),
-    default_points=LGRPoints(8),
+    default_intervals=FlexibleIntervals(8, 0.5),
+    default_points=LGRPoints(3),
     default_method=PenaltyIR(10),
-    default_bounds=SampledBounds(20)
+    default_bounds=SampledBounds(10)
 )
-u_sol, r_sol, v_sol = cart_pole(model)
+u_sol, r_sol, v_sol, model = cart_pole(model)
 
-# plot(tau -> r_sol(tau), xlims=(t_0, t_f))
+__eval = eval_funcs(model.inner, model.dif_res_funcs)
+println("maximum residual gradient")
+println(maximum(__eval))
+println("minimum residual gradient")
+println(minimum(__eval))
 
-xs = range(t_0, t_f, length=200)
-ys = r_sol.(xs)
-plt = plot(xs, ys, xlims=(t_0, t_f))
-display(plt)
+_eval = eval_funcs(model.inner, model.res_funcs)
+println("maximum residual")
+println(maximum(_eval))
+println("minimum residual")
+println(minimum(_eval))
+
+plot(tau -> r_sol(tau), xlims=(t_0, t_f))

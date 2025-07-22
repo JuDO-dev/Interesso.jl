@@ -12,6 +12,7 @@ include("points.jl")
 include("methods.jl")
 include("bounds.jl")
 include("intervals.jl")
+include("post_analyze.jl")
 
 include("DOI/aliases.jl")
 include("DOI/optimizer.jl")
@@ -31,5 +32,6 @@ export AbstractPoints, AbstractPointsMesh, LGRPoints
 export AbstractMethod, AbstractMethodMesh, Collocation, PenaltyIR
 export AbstractBounds, AbstractBoundsMesh, ExactBounds, SampledBounds, BernsteinBounds
 export AbstractIntervals, AbstractIntervalsMesh, FixedIntervals, FlexibleIntervals
+export eval_funcs
 
 end
