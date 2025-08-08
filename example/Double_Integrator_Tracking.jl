@@ -1,7 +1,7 @@
 import MathOptInterface as MOI
 import DynOptInterface as DOI
 using Interesso
-using SimplePlots
+using Plots
 using SLOW
 
 # Problem Constants

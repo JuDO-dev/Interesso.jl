@@ -136,8 +136,15 @@ function cart_pole(model::Interesso.Optimizer)
     return u_sol, r_sol, v_sol, model
 end
 
+optimizer = SLOW.Optimizer()
+MOI.set(optimizer, MOI.RawOptimizerAttribute("λ0"), 0.0)
+MOI.set(optimizer, MOI.RawOptimizerAttribute("ρ0"), 10.0)
+MOI.set(optimizer, MOI.RawOptimizerAttribute("h_norm"), 1)
+MOI.set(optimizer, MOI.RawOptimizerAttribute("max_iter"), 1000)
+MOI.set(optimizer, MOI.RawOptimizerAttribute("max_time"), 60.0)
+
 model = Interesso.Optimizer(
-    # inner = SLOW.Optimizer(),
+    inner = optimizer,
     default_intervals=FlexibleIntervals(8, 0.5),
     default_points=LGRPoints(3),
     default_method=PenaltyIR(10),
@@ -148,13 +155,13 @@ u_sol, r_sol, v_sol, model = cart_pole(model)
 __eval = eval_funcs(model.inner, model.dif_res_funcs)
 println("maximum residual gradient")
 println(maximum(__eval))
-println("minimum residual gradient")
-println(minimum(__eval))
+println("average residual gradient")
+println(sum(__eval) / length(__eval))
 
 _eval = eval_funcs(model.inner, model.res_funcs)
 println("maximum residual")
 println(maximum(_eval))
-println("minimum residual")
-println(minimum(_eval))
+println("average residual")
+println(sum(_eval) / length(_eval))
 
 plot(tau -> r_sol(tau), xlims=(t_0, t_f))

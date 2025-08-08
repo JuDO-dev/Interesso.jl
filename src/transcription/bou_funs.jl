@@ -413,7 +413,7 @@ function _get_interval_dyn_vars(
 )
 
     interval_vars = VAR[]
-    for dyn_var in model.dyn_vars[phase]
+    for dyn_var in model.dif_dyn_vars
         append!(interval_vars, model.dyn_var_vars[dyn_var][i])
     end
 
