@@ -59,7 +59,16 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
         default_method::AbstractMethod=Collocation(),
         default_bounds::AbstractBounds=ExactBounds(),
     )
-        
+
+        if default_method isa Collocation
+            if !(length(default_points.points_dif_τ) == length(default_points.points_alg_τ) + 1)
+                throw(DomainError("Collocation method requires states and control to be of same order."))
+            end
+            if default_bounds isa SampledBounds
+                throw(DomainError("Collocation method does not support sampled bounds."))
+            end
+        end
+
         inner = MOI.Bridges.full_bridge_optimizer(inner, Float64)
 
         return new(

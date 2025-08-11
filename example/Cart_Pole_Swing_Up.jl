@@ -145,8 +145,8 @@ MOI.set(optimizer, MOI.RawOptimizerAttribute("max_time"), 60.0)
 model = Interesso.Optimizer(
     inner=optimizer,
     default_intervals=FlexibleIntervals(20, 0.0),
-    # default_intervals=FixedIntervals(20),
-    default_points=LGRPoints(3),
+    # default_intervals=FixedIntervals(10),
+    default_points=LGRPoints(3; order_control=2),
     default_method=IntResidual(5),
     default_bounds=SampledBounds(10)
 )

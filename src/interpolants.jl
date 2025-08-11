@@ -95,10 +95,14 @@ end
 
 function _barycentric_weights(points::Vector{T}) where {T<:Real}
 
-    return 1 ./ [
-        prod(points[j] - points[k] for k in eachindex(points) if k != j)
-        for j in eachindex(points)
-    ]
+    if length(points) == 1
+        return [one(T)]
+    else
+        return 1 ./ [
+            prod(points[j] - points[k] for k in eachindex(points) if k != j)
+            for j in eachindex(points)
+        ]
+    end
 end
 
 function _interpolate(
