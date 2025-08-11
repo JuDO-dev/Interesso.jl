@@ -52,7 +52,6 @@ function cart_pole(model::Interesso.Optimizer)
     MOI.add_constraint(model, DOI.Initial(v), MOI.EqualTo(0.0))
     MOI.add_constraint(model, DOI.Initial(ω), MOI.EqualTo(0.0))
 
-
     MOI.add_constraint(model, DOI.Final(r), MOI.EqualTo(1.0))
     MOI.add_constraint(model, DOI.Final(θ), MOI.EqualTo(1.0 * pi))
     MOI.add_constraint(model, DOI.Final(v), MOI.EqualTo(0.0))
@@ -137,17 +136,18 @@ function cart_pole(model::Interesso.Optimizer)
 end
 
 optimizer = SLOW.Optimizer()
-MOI.set(optimizer, MOI.RawOptimizerAttribute("λ0"), 0.0)
+MOI.set(optimizer, MOI.RawOptimizerAttribute("λ0"), nothing)
 MOI.set(optimizer, MOI.RawOptimizerAttribute("ρ0"), 10.0)
 MOI.set(optimizer, MOI.RawOptimizerAttribute("h_norm"), 1)
 MOI.set(optimizer, MOI.RawOptimizerAttribute("max_iter"), 1000)
 MOI.set(optimizer, MOI.RawOptimizerAttribute("max_time"), 60.0)
 
 model = Interesso.Optimizer(
-    inner = optimizer,
-    default_intervals=FlexibleIntervals(8, 0.5),
+    inner=optimizer,
+    default_intervals=FlexibleIntervals(20, 0.0),
+    # default_intervals=FixedIntervals(20),
     default_points=LGRPoints(3),
-    default_method=PenaltyIR(10),
+    default_method=IntResidual(5),
     default_bounds=SampledBounds(10)
 )
 u_sol, r_sol, v_sol, model = cart_pole(model)

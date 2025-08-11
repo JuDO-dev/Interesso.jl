@@ -289,7 +289,7 @@ function transcribe_dif_cons!(
     model::Optimizer,
     phase::PHS,
     mesh::AbstractIntervalsMesh{PM,MM,BM},
-) where {PM,MM<:PenaltyIRMesh,BM}
+) where {PM,MM<:IntResidualMesh,BM}
 
     n_h = get_intervals_length(mesh)
     for i = 1:n_h
@@ -310,7 +310,7 @@ function transcribe_alg_cons!(
     model::Optimizer,
     phase::PHS,
     mesh::AbstractIntervalsMesh{PM,MM,BM},
-) where {PM,MM<:PenaltyIRMesh,BM}
+) where {PM,MM<:IntResidualMesh,BM}
 
     n_h = get_intervals_length(mesh)
     for i = 1:n_h

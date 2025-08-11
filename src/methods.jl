@@ -60,13 +60,13 @@ mesh_type(::Type{Collocation}) = CollocationMesh
 build_method_mesh(::Collocation, mesh::AbstractPointsMesh) = CollocationMesh(mesh)
 
 
-# PIR
+# Integrated Residual
 
-struct PenaltyIR{T<:AbstractPoints} <: AbstractMethod
+struct IntResidual{T<:AbstractPoints} <: AbstractMethod
     quad_points::T
 end
 
-PenaltyIR(number::Integer) = PenaltyIR(GLPoints(number))
+IntResidual(number::Integer) = IntResidual(GLPoints(number))
 
 """
     quad_var_vars[dyn_var][i] should be Vector{MathOptInterface.ScalarAffineFunction{Float64}}
@@ -75,22 +75,22 @@ PenaltyIR(number::Integer) = PenaltyIR(GLPoints(number))
     dyn_var_vars::DYN_VAR_VARS
 """
 
-struct PenaltyIRMesh{P<:AbstractPointsMesh, I<:AbstractInterpolant} <: AbstractMethodMesh
+struct IntResidualMesh{P<:AbstractPointsMesh, I<:AbstractInterpolant} <: AbstractMethodMesh
     quad_points_mesh::P
     interpolant::I
 end
 
-function PenaltyIRMesh(points::PenaltyIR, mesh::AbstractPointsMesh) 
+function IntResidualMesh(points::IntResidual, mesh::AbstractPointsMesh) 
 
     quad_mesh = GLPointsMesh(points.quad_points, mesh.t_a, mesh.t_b)
     interpolant = PM_MM_Interpolation(mesh, quad_mesh)
     
-    return PenaltyIRMesh(quad_mesh, interpolant)
+    return IntResidualMesh(quad_mesh, interpolant)
 end
 
-mesh_type(::Type{PenaltyIR}) = PenaltyIRMesh
+mesh_type(::Type{IntResidual}) = IntResidualMesh
 
-build_method_mesh(points::PenaltyIR, mesh::AbstractPointsMesh) = PenaltyIRMesh(points, mesh)
+build_method_mesh(points::IntResidual, mesh::AbstractPointsMesh) = IntResidualMesh(points, mesh)
 
 function _identity_matrix(n::Integer)
     I = zeros(Float64, n, n)

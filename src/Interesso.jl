@@ -29,7 +29,7 @@ include("transcription/sol_derivative.jl")
 
 export AbstractInterpolant, PiecewiseInterpolant, LagrangeInterpolant
 export AbstractPoints, AbstractPointsMesh, LGRPoints
-export AbstractMethod, AbstractMethodMesh, Collocation, PenaltyIR
+export AbstractMethod, AbstractMethodMesh, Collocation, IntResidual
 export AbstractBounds, AbstractBoundsMesh, ExactBounds, SampledBounds, BernsteinBounds
 export AbstractIntervals, AbstractIntervalsMesh, FixedIntervals, FlexibleIntervals
 export eval_funcs

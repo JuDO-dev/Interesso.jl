@@ -170,7 +170,7 @@ function transcribe_integral(
     integrand::NDF,
     model::Optimizer,
     mesh::FixedIntervalsMesh{PM,MM,BM}
-) where {PM,MM<:PenaltyIRMesh,BM}
+) where {PM,MM<:IntResidualMesh,BM}
 
     n_h = get_intervals_length(mesh)
     n_p_quad = get_points_quad_length(mesh)
@@ -182,7 +182,7 @@ function transcribe_integral(
             [MOI.ScalarNonlinearFunction(
                 :*,
                 [
-                    mesh.points_meshes[i].quad_weights[q],
+                    mesh.method_meshes[i].quad_points_mesh.quad_weights[q],
                     transcribe_dyn_fun(
                         integrand, i, q, model.phase_vars, model.dyn_var_vars,
                         model.dif_dyn_vars, mesh,
@@ -197,7 +197,7 @@ function transcribe_integral(
     integrand::NDF,
     model::Optimizer,
     mesh::FlexibleIntervalsMesh{PM,MM,BM}
-) where {PM,MM<:PenaltyIRMesh,BM}
+) where {PM,MM<:IntResidualMesh,BM}
 
     n_h = get_intervals_length(mesh)
     n_p_quad = get_points_quad_length(mesh)
@@ -248,7 +248,7 @@ function transcribe_dif_least_square(
     i::Integer,
     phase::PHS,
     mesh::AbstractIntervalsMesh{PM,MM,BM},
-) where {PM,MM<:PenaltyIRMesh,BM}
+) where {PM,MM<:IntResidualMesh,BM}
 
     dif_cons = model.dif_cons[phase]
     n_p_quad = get_points_quad_length(mesh)
@@ -273,7 +273,7 @@ function transcribe_dif_least_square(
     model::Optimizer,
     phase::PHS,
     mesh::AbstractIntervalsMesh{PM,MM,BM},
-) where {PM,MM<:PenaltyIRMesh,BM}
+) where {PM,MM<:IntResidualMesh,BM}
 
     n_h = get_intervals_length(mesh)
 
@@ -290,7 +290,7 @@ function transcribe_alg_least_square(
     i::Integer,
     phase::PHS,
     mesh::AbstractIntervalsMesh{PM,MM,BM},
-) where {PM,MM<:PenaltyIRMesh,BM}
+) where {PM,MM<:IntResidualMesh,BM}
 
     alg_cons = model.alg_cons[phase]
     n_p_quad = get_points_quad_length(mesh)
@@ -315,7 +315,7 @@ function transcribe_alg_least_square(
     model::Optimizer,
     phase::PHS,
     mesh::AbstractIntervalsMesh{PM,MM,BM},
-) where {PM,MM<:PenaltyIRMesh,BM}
+) where {PM,MM<:IntResidualMesh,BM}
 
     n_h = get_intervals_length(mesh)
 
@@ -332,7 +332,7 @@ function transcribe_dyn_least_square(
     i::Integer,
     phase::PHS,
     mesh::AbstractIntervalsMesh{PM,MM,BM},
-) where {PM,MM<:PenaltyIRMesh,BM}
+) where {PM,MM<:IntResidualMesh,BM}
 
     return MOI.ScalarNonlinearFunction(
         :+,
@@ -347,7 +347,7 @@ function transcribe_dyn_least_square(
     model::Optimizer,
     phase::PHS,
     mesh::AbstractIntervalsMesh{PM,MM,BM},
-) where {PM,MM<:PenaltyIRMesh,BM}
+) where {PM,MM<:IntResidualMesh,BM}
 
     return MOI.ScalarNonlinearFunction(
         :+,
@@ -365,7 +365,7 @@ function transcribe_dyn_least_square(
     return MOI.ScalarNonlinearFunction(
         :+,
         [
-            transcribe_dyn_least_square(model, phase, mesh) for (phase, mesh) in meshes if mesh.method_mesh isa PenaltyIRMesh
+            transcribe_dyn_least_square(model, phase, mesh) for (phase, mesh) in meshes if mesh.method_mesh isa IntResidualMesh
         ]
     )
 end
@@ -375,7 +375,7 @@ function transcribe_grad_dyn_least_square(
     i::Integer,
     phase::PHS,
     mesh::AbstractIntervalsMesh{PM,MM,BM},
-) where {PM,MM<:PenaltyIRMesh,BM}
+) where {PM,MM<:IntResidualMesh,BM}
 
 """
     for an interval i, it will include unique(dyn_var_vars[all dyn_vars][i]) optimizers

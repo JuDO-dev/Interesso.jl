@@ -193,7 +193,7 @@ function build_intervals_mesh(
 
     Δt = t_f - t_0
     Δt_min = (1 - intervals.flexibility) * Δt / intervals.number
-    Δt_max = Δt_min + intervals.flexibility * Δt
+    Δt_max = (1 + intervals.flexibility) * Δt / intervals.number
 
     return FlexibleIntervalsMesh(fixed, points_mesh, method_mesh, Δt_min, Δt_max)
 end

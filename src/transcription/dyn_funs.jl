@@ -85,7 +85,25 @@ function transcribe_dyn_fun(
     ::PHS_VARS,
     dyn_var_vars::DYN_VAR_VARS,
     dif_dyn_vars::AbstractSet{DYN_VAR},
-    mesh::AbstractIntervalsMesh,
+    mesh::FixedIntervalsMesh,
+)
+
+    if dyn_var in dif_dyn_vars
+        points_quad = mesh.method_meshes[i].interpolant.interpolant_dif * dyn_var_vars[dyn_var][i]
+    else
+        points_quad = mesh.method_meshes[i].interpolant.interpolant_alg * dyn_var_vars[dyn_var][i]
+    end
+    return points_quad[q]
+end
+
+function transcribe_dyn_fun(
+    dyn_var::DYN_VAR,
+    i::Integer,
+    q::Integer,
+    ::PHS_VARS,
+    dyn_var_vars::DYN_VAR_VARS,
+    dif_dyn_vars::AbstractSet{DYN_VAR},
+    mesh::FlexibleIntervalsMesh,
 )
     """
     need to do interpolations to dyn_var_vars, if least-square
@@ -131,7 +149,7 @@ function transcribe_dyn_fun(
     vars = dyn_var_vars[dif_fun.dyn_var]
     n_p_dif = get_points_dif_length(mesh)
 
-    differentiation = mesh.method_mesh.interpolant.interpolant_dif * mesh.points_meshes[i].differentiation
+    differentiation = mesh.method_meshes[i].interpolant.interpolant_dif * mesh.points_meshes[i].differentiation
 
     return MOI.ScalarNonlinearFunction(:-, Any[
         sum(differentiation[q,k] * vars[i][k] for k in 1:n_p_dif),

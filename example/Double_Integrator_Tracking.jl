@@ -104,7 +104,7 @@ model = Interesso.Optimizer(
     inner = SLOW.Optimizer(),
     default_intervals=FlexibleIntervals(4, 0.5),
     default_points=LGRPoints(8),
-    default_method=PenaltyIR(10),
+    default_method=IntResidual(10),
 )
 u_sol, x_sol, v_sol = cart_pole(model)
 
