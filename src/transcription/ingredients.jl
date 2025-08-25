@@ -1,8 +1,26 @@
-function transcribe_phase!(::Optimizer, ::PHS, ::FixedIntervalsMesh)
+function transcribe_phase!(::Optimizer, phase::PHS, ::FixedIntervalsMesh)
+    
+    if !haskey(model.phase_finals, phase)
+        Δt = MOI.add_variable(model.inner)
+        MOI.set(model.inner, MOI.VariablePrimalStart(), Δt, 1.0)
+        MOI.add_constraint(model.inner, Δt, MOI.GreaterThan(1e-8))
+        model.time_vars[phase] = Δt
+    else
+        model.time_vars[phase] = 1.0
+    end
     return nothing
 end
 
 function transcribe_phase!(model::Optimizer, phase::PHS, mesh::FlexibleIntervalsMesh)
+
+    if !haskey(model.phase_finals, phase)
+        Δt = MOI.add_variable(model.inner)
+        MOI.set(model.inner, MOI.VariablePrimalStart(), Δt, 1.0)
+        MOI.add_constraint(model.inner, Δt, MOI.GreaterThan(0.0))
+        model.time_vars[phase] = Δt
+    else
+        model.time_vars[phase] = 1.0
+    end
 
     n_h = get_intervals_length(mesh)
     t_0 = mesh.fixed.points_meshes[1].t_a
@@ -247,7 +265,7 @@ function transcribe_dif_cons!(
             for j in 1:n_p_alg
                 MOI.add_constraint(
                     model.inner,
-                    transcribe_dyn_fun(dif_fun, i, j, model.phase_vars,
+                    transcribe_dyn_fun(dif_fun, i, j, model.phase_vars, model.time_vars[phase],
                         model.dyn_var_vars, model.dif_dyn_vars, mesh
                     ),
                     set,
@@ -274,7 +292,7 @@ function transcribe_alg_cons!(
             for q in 1:n_p_alg
                 MOI.add_constraint(
                     model.inner,
-                    transcribe_dyn_fun(alg_fun, i, q, model.phase_vars,
+                    transcribe_dyn_fun(alg_fun, i, q, model.phase_vars, model.time_vars[phase],
                         model.dyn_var_vars, model.dif_dyn_vars, mesh
                     ), 
                     set,

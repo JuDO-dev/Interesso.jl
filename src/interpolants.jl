@@ -17,7 +17,7 @@ struct PiecewiseInterpolant{I<:AbstractInterpolant} <: AbstractInterpolant
     function PiecewiseInterpolant(pieces::Vector{I}) where {I<:AbstractInterpolant}
         for i in 2:length(pieces)
             if !(pieces[i].initial ≈ pieces[i-1].final)
-                throw(ArgumentError("Please ensure the pieces are contiguous."))
+                throw(ArgumentError("Please ensure the pieces are continuous."))
             end
         end
         

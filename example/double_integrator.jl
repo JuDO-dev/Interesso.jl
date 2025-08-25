@@ -1,8 +1,6 @@
 import MathOptInterface as MOI
 import DynOptInterface as DOI
 using Interesso
-using Plots
-using SLOW
 
 # Problem Constants
 const NDF = DOI.NonlinearDynamicFunction
@@ -16,14 +14,14 @@ end
 
 # Problem Solver
 
-function cart_pole(model::Interesso.Optimizer)
+function double_integrator(model::Interesso.Optimizer)
 
     @assert MOI.is_empty(model)
 
     ## Time as a phase
     t = DOI.add_phase(model)
-    MOI.add_constraint(model, DOI.Initial(t), MOI.EqualTo(0.0))
-    MOI.add_constraint(model, DOI.Final(t), MOI.EqualTo(10.0))
+    MOI.add_constraint(model, DOI.Initial(t), MOI.EqualTo(10.0))
+    MOI.add_constraint(model, DOI.Final(t), MOI.EqualTo(20.0))
 
     ## Input Dynamic Variable
     u = DOI.add_dynamic_variable(model, t)
@@ -99,18 +97,3 @@ function cart_pole(model::Interesso.Optimizer)
 
     return u_sol, x_sol, v_sol
 end
-
-model = Interesso.Optimizer(
-    inner = SLOW.Optimizer(),
-    default_intervals=FlexibleIntervals(4, 0.5),
-    default_points=LGRPoints(8),
-    default_method=IntResidual(10),
-)
-u_sol, x_sol, v_sol = cart_pole(model)
-
-# plot(tau -> x_sol(tau), xlims=(0.0, 10.0))
-
-xs = range(0.0, 10.0, length=200)
-ys = x_sol.(xs)
-plt = plot(xs, ys, xlims=(0.0, 10.0))
-display(plt)

@@ -4,6 +4,7 @@ function transcribe_dyn_fun(
     ::Integer,
     ::Integer,
     ::PHS_VARS,
+    ::TIME_VAR,
     ::DYN_VAR_VARS,
     ::AbstractSet{DYN_VAR},
     ::AbstractIntervalsMesh,
@@ -17,6 +18,7 @@ function transcribe_dyn_fun(
     ::Integer,
     ::Integer,
     ::PHS_VARS,
+    ::TIME_VAR,
     ::DYN_VAR_VARS,
     ::AbstractSet{DYN_VAR},
     ::AbstractIntervalsMesh,
@@ -30,6 +32,7 @@ function transcribe_dyn_fun(
     ::Integer,
     ::Integer,
     ::PHS_VARS,
+    ::TIME_VAR,
     ::DYN_VAR_VARS,
     ::AbstractSet{DYN_VAR},
     ::AbstractIntervalsMesh,
@@ -43,6 +46,7 @@ function transcribe_dyn_fun(
     i::Integer,
     q::Integer,
     ::PHS_VARS,
+    ::TIME_VAR,
     ::DYN_VAR_VARS,
     ::AbstractSet{DYN_VAR},
     mesh::FixedIntervalsMesh,
@@ -55,6 +59,7 @@ function transcribe_dyn_fun(
     i::Integer,
     q::Integer,
     phase_vars::PHS_VARS,
+    ::TIME_VAR,
     ::DYN_VAR_VARS,
     ::AbstractSet{DYN_VAR},
     mesh::FlexibleIntervalsMesh,
@@ -83,6 +88,7 @@ function transcribe_dyn_fun(
     i::Integer,
     q::Integer,
     ::PHS_VARS,
+    ::TIME_VAR,
     dyn_var_vars::DYN_VAR_VARS,
     dif_dyn_vars::AbstractSet{DYN_VAR},
     mesh::FixedIntervalsMesh,
@@ -101,6 +107,7 @@ function transcribe_dyn_fun(
     i::Integer,
     q::Integer,
     ::PHS_VARS,
+    ::TIME_VAR,
     dyn_var_vars::DYN_VAR_VARS,
     dif_dyn_vars::AbstractSet{DYN_VAR},
     mesh::FlexibleIntervalsMesh,
@@ -124,6 +131,7 @@ function transcribe_dyn_fun(
     i::Integer,
     q::Integer,
     phase_vars::PHS_VARS,
+    time_var::TIME_VAR,
     dyn_var_vars::DYN_VAR_VARS,
     dif_dyn_vars::AbstractSet{DYN_VAR},
     mesh::AbstractIntervalsMesh,
@@ -131,7 +139,7 @@ function transcribe_dyn_fun(
     return MOI.ScalarNonlinearFunction(
         nl_dyn_fun.head,
         [transcribe_dyn_fun(
-            arg, i, q, phase_vars, dyn_var_vars, dif_dyn_vars, mesh,
+            arg, i, q, phase_vars, time_var, dyn_var_vars, dif_dyn_vars, mesh,
         ) for arg in nl_dyn_fun.args],
     )
 end
@@ -142,6 +150,7 @@ function transcribe_dyn_fun(
     i::Integer,
     q::Integer,
     phase_vars::PHS_VARS,
+    time_var::TIME_VAR,
     dyn_var_vars::DYN_VAR_VARS,
     dif_dyn_vars::AbstractSet{DYN_VAR},
     mesh::FixedIntervalsMesh,
@@ -153,9 +162,12 @@ function transcribe_dyn_fun(
 
     return MOI.ScalarNonlinearFunction(:-, Any[
         sum(differentiation[q,k] * vars[i][k] for k in 1:n_p_dif),
-        transcribe_dyn_fun(
-            dif_fun.dyn_fun, i, q, phase_vars, dyn_var_vars, dif_dyn_vars, mesh,
-        ),
+        MOI.ScalarNonlinearFunction(:*, Any[
+            time_var,
+            transcribe_dyn_fun(
+                dif_fun.dyn_fun, i, q, phase_vars, time_var, dyn_var_vars, dif_dyn_vars, mesh,
+            ),
+        ]),
     ])
 end
 
@@ -164,6 +176,7 @@ function transcribe_dyn_fun(
     i::Integer,
     q::Integer,
     phase_vars::PHS_VARS,
+    time_var::TIME_VAR,
     dyn_var_vars::DYN_VAR_VARS,
     dif_dyn_vars::AbstractSet{DYN_VAR},
     mesh::FlexibleIntervalsMesh,
@@ -194,9 +207,10 @@ function transcribe_dyn_fun(
     return MOI.ScalarNonlinearFunction(:-, Any[
         sum(2.0 * differentiation[q,k] * vars[i][k] for k in 1:n_p_dif),
         MOI.ScalarNonlinearFunction(:*, Any[
+            time_var,
             Δt,
             transcribe_dyn_fun(
-                dif_fun.dyn_fun, i, q, phase_vars, dyn_var_vars, dif_dyn_vars, mesh,
+                dif_fun.dyn_fun, i, q, phase_vars, time_var, dyn_var_vars, dif_dyn_vars, mesh,
             ),
         ]),
     ])

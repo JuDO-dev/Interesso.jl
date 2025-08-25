@@ -49,15 +49,7 @@ function MOI.get(model::Optimizer, ::DOI.DynamicVariableSolution, dyn_var::DYN_V
     phase = DOI.phase_index(dyn_var)
 
     if !haskey(model.sol_dyn_vars[phase], dyn_var)
-    
-        transcribe_sol_dyn_var!(
-            model.sol_dyn_vars[phase],
-            model.inner,
-            model.dyn_var_vars,
-            dyn_var,
-            model.dif_dyn_vars,
-            model.meshes[phase],
-        )
+        transcribe_sol_dyn_var!(model, model.time_vars[phase], phase, dyn_var)
     end
     return model.sol_dyn_vars[phase][dyn_var]
 end

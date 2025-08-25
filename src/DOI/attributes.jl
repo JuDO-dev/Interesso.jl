@@ -13,7 +13,7 @@ end
 MOI.get(model::Optimizer, ::MOI.Name) = model.name
 
 ## Silent
-MOI.supports(model::Optimizer, attr::MOI.Silent) = MOI.supports(model.inner, attr)
+MOI.supports(model::Optimizer, attr::MOI.Silent)        = MOI.supports(model.inner, attr)
 MOI.set(model::Optimizer, attr::MOI.Silent, bool::Bool) = MOI.set(model.inner, attr, bool)
 MOI.get(model::Optimizer, attr::MOI.Silent)             = MOI.get(model.inner, attr)
 

@@ -1,12 +1,13 @@
 const VAR = MOI.VariableIndex
 const PHS = DOI.PhaseIndex
+const TIME_VAR = Union{Float64,VAR}
 const DYN_VAR = DOI.DynamicVariableIndex
 const NDF = DOI.NonlinearDynamicFunction
 const NBF = DOI.NonlinearBoundaryFunction
 
 const EQ64 = MOI.EqualTo{Float64}
 const IV64 = MOI.Interval{Float64}
-const EI64 = Union{EQ64, IV64}
+const EI64 = Union{EQ64,IV64}
 
 const STARTS = OrderedDict{DYN_VAR,DOI.AbstractDynamicSolution}
 
@@ -37,4 +38,5 @@ const SOLS{F<:DOI.AbstractDynamicFunction} = OrderedDict{
 const MESHES = OrderedDict{PHS,AbstractIntervalsMesh}
 
 const PHS_VARS = OrderedDict{PHS,Vector{VAR}}
+const TIME_VARS = OrderedDict{PHS,TIME_VAR}
 const DYN_VAR_VARS = OrderedDict{DYN_VAR,Vector{Vector{VAR}}}

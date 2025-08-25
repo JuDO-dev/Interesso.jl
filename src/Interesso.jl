@@ -32,6 +32,6 @@ export AbstractPoints, AbstractPointsMesh, LGRPoints
 export AbstractMethod, AbstractMethodMesh, Collocation, IntResidual
 export AbstractBounds, AbstractBoundsMesh, ExactBounds, SampledBounds, BernsteinBounds
 export AbstractIntervals, AbstractIntervalsMesh, FixedIntervals, FlexibleIntervals
-export eval_funcs
+export eval_funcs, plot
 
 end

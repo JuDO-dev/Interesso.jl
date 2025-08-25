@@ -41,6 +41,7 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
     meshes::MESHES
     inner::MOI.AbstractOptimizer
     phase_vars::PHS_VARS
+    time_vars::TIME_VARS
     dyn_var_vars::DYN_VAR_VARS
     penalty_funs::OrderedDict{PHS,MOI.ScalarNonlinearFunction}
 
@@ -103,6 +104,7 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
             MESHES(),
             inner,
             PHS_VARS(),
+            TIME_VARS(),
             DYN_VAR_VARS(),
             OrderedDict{PHS,MOI.ScalarNonlinearFunction}(),
             OrderedDict{PHS,SOLS{DYN_VAR}}(),
@@ -141,6 +143,7 @@ function MOI.empty!(model::Optimizer)
     empty!(model.meshes)
     MOI.empty!(model.inner)
     empty!(model.phase_vars)
+    empty!(model.time_vars)
     empty!(model.dyn_var_vars)
     empty!(model.penalty_funs)
     empty!(model.sol_dyn_vars)
@@ -152,22 +155,21 @@ end
 function MOI.is_empty(model::Optimizer)
 
     return isempty(model.phases)          &&                                     
-        isempty(model.phase_initials)     && isempty(model.phase_finals)        &&
-        isempty(model.dyn_vars)           && isempty(model.dyn_var_bounds)      &&
-        isempty(model.dyn_var_initials)   && isempty(model.dyn_var_finals)      &&
-        isempty(model.linkages)           && isempty(model.dif_dyn_vars)        &&
-        isempty(model.dif_cons)           && isempty(model.alg_cons)            &&
-        model.objective_sense == MOI.FEASIBILITY_SENSE                          &&
+        isempty(model.phase_initials)     && isempty(model.phase_finals)       &&
+        isempty(model.dyn_vars)           && isempty(model.dyn_var_bounds)     &&
+        isempty(model.dyn_var_initials)   && isempty(model.dyn_var_finals)     &&
+        isempty(model.linkages)           && isempty(model.dif_dyn_vars)       &&
+        isempty(model.dif_cons)           && isempty(model.alg_cons)           &&
+        model.objective_sense == MOI.FEASIBILITY_SENSE                         &&
         isnothing(model.objective)        &&
-        iszero(model.last_index_phases)   && iszero(model.last_index_dyn_vars)  &&
-        iszero(model.last_index_dif_cons) && iszero(model.last_index_alg_cons)  &&
-        iszero(model.last_index_linkages) && isempty(model.start_dyn_vars)      &&
-        isempty(model.phase_intervals)    && isempty(model.phase_points)        &&
-        isempty(model.phase_method)       && isempty(model.phase_bounds)        &&
-        
-        isempty(model.meshes)             && MOI.is_empty(model.inner)  && 
-        isempty(model.phase_vars)         && isempty(model.dyn_var_vars)        &&
-        isempty(model.penalty_funs)       &&
+        iszero(model.last_index_phases)   && iszero(model.last_index_dyn_vars) &&
+        iszero(model.last_index_dif_cons) && iszero(model.last_index_alg_cons) &&
+        iszero(model.last_index_linkages) && isempty(model.start_dyn_vars)     &&
+        isempty(model.phase_intervals)    && isempty(model.phase_points)       &&
+        isempty(model.phase_method)       && isempty(model.phase_bounds)       &&
+        isempty(model.meshes)             && MOI.is_empty(model.inner)         && 
+        isempty(model.phase_vars)         && isempty(model.time_vars)          &&
+        isempty(model.dyn_var_vars)       && isempty(model.penalty_funs)       &&
         isempty(model.sol_dyn_vars)       && isempty(model.sol_derivatives)
 end
 
@@ -181,8 +183,14 @@ function MOI.optimize!(model::Optimizer)
             
             if !haskey(model.phase_initials, phase)
                 error("Please ensure that all phases have a fixed initial value.")
-            elseif !haskey(model.phase_finals, phase)
-                error("Please ensure that all phases have a fixed final value.")
+            end
+
+            if haskey(model.phase_finals, phase)
+                t_0 = model.phase_initials[phase]
+                t_f = model.phase_finals[phase]
+            else
+                t_0 = 0.0
+                t_f = 1.0
             end
             
             model.meshes[phase] = build_intervals_mesh(
@@ -190,8 +198,8 @@ function MOI.optimize!(model::Optimizer)
                 get(model.phase_points, phase, model.default_points),
                 get(model.phase_method, phase, model.default_method),
                 get(model.phase_bounds, phase, model.default_bounds),
-                model.phase_initials[phase],
-                model.phase_finals[phase],
+                t_0,
+                t_f
             )
         end
     end

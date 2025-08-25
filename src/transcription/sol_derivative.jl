@@ -1,6 +1,8 @@
 function transcribe_sol_derivative!(
     sol_derivatives::SOLS{DOI.Derivative{DYN_VAR}},
     solver::MOI.ModelLike,
+    t_0::Float64,
+    Δt::Float64,
     dyn_var_vars::DYN_VAR_VARS,
     derivative::DOI.Derivative{DYN_VAR},
     mesh::AbstractIntervalsMesh,
@@ -13,10 +15,10 @@ function transcribe_sol_derivative!(
 
     sol_derivatives[derivative] = PiecewiseInterpolant([
         LagrangeInterpolant(
-            mesh_i.t_a,
-            mesh_i.t_b,
-            mesh_i.points_dif,
-            mesh_i.bary_weights_dif,
+            mesh_i.t_a * Δt + t_0,
+            mesh_i.t_b * Δt + t_0,
+            mesh_i.points_dif .* Δt .+ t_0,
+            mesh_i.bary_weights_dif .* (Δt ^ (length(mesh_i.points_dif) - 1)),
             [   
                 sum(mesh_i.differentiation[j,k] * MOI.get(
                     solver,

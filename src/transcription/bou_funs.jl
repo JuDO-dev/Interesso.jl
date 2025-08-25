@@ -19,16 +19,51 @@ end
 # Phase Boundaries
 function transcribe_bou_fun(
     phase_bou::Union{DOI.Initial{PHS},DOI.Final{PHS}},
-    ::Optimizer,
+    model::Optimizer,
     meshes::MESHES,
 )
-    return transcribe_phase_bou(phase_bou, meshes[phase_bou.dyn_fun])
+    return transcribe_phase_bou(
+        phase_bou,
+        model.phase_vars,
+        model.time_vars,
+        meshes[phase_bou.dyn_fun],
+    )
 end
 
-transcribe_phase_bou(::DOI.Initial{PHS}, mesh::FixedIntervalsMesh) = mesh.points_meshes[1].t_a
-transcribe_phase_bou(::DOI.Final{PHS}, mesh::FixedIntervalsMesh) = mesh.points_meshes[end].t_b
-transcribe_phase_bou(::DOI.Initial{PHS}, mesh::FlexibleIntervalsMesh) = mesh.fixed.points_meshes[1].t_a
-transcribe_phase_bou(::DOI.Final{PHS}, mesh::FlexibleIntervalsMesh) = mesh.fixed.points_meshes[end].t_b
+transcribe_phase_bou(
+    ::DOI.Initial{PHS},
+    ::PHS_VARS,
+    ::TIME_VARS,
+    mesh::FixedIntervalsMesh,
+) = mesh.points_meshes[1].t_a
+
+function transcribe_phase_bou(
+    phase_final::DOI.Final{PHS},
+    ::PHS_VARS,
+    time_vars::TIME_VARS,
+    mesh::FixedIntervalsMesh,
+)
+    phase = phase_final.dyn_fun
+    if haskey(time_vars, phase)
+        return 1.0 * time_vars[phase]
+    else
+        return mesh.points_meshes[end].t_b
+    end
+end
+
+transcribe_phase_bou(
+    ::DOI.Initial{PHS},
+    ::PHS_VARS,
+    ::TIME_VARS,
+    mesh::FlexibleIntervalsMesh,
+) = mesh.fixed.points_meshes[1].t_a
+
+transcribe_phase_bou(
+    ::DOI.Final{PHS},
+    ::PHS_VARS,
+    ::TIME_VARS,
+    mesh::FlexibleIntervalsMesh,
+) = mesh.fixed.points_meshes[end].t_b
 
 # Dynamic Variable Boundaries
 function transcribe_bou_fun(
@@ -94,7 +129,7 @@ function transcribe_bou_fun(
     return MOI.ScalarNonlinearFunction(
         :+,
         [
-            transcribe_integral(dyn_fun, model, meshes[DOI.phase_index(dyn_fun)])
+            transcribe_integral(dyn_fun, model, meshes[DOI.phase_index(dyn_fun)], model.time_vars[DOI.phase_index(dyn_fun)])
             for dyn_fun in integrals.dyn_funs
         ],
     )
@@ -103,7 +138,8 @@ end
 function transcribe_integral(
     integrand::NDF,
     model::Optimizer,
-    mesh::FixedIntervalsMesh{PM,MM,BM}
+    mesh::FixedIntervalsMesh{PM,MM,BM},
+    time_var::Union{Float64, VAR}
 ) where {PM,MM<:CollocationMesh,BM}
 
     n_h = get_intervals_length(mesh)
@@ -112,17 +148,20 @@ function transcribe_integral(
     return MOI.ScalarNonlinearFunction(
         :+,
         [MOI.ScalarNonlinearFunction(
-            :+,
-            [MOI.ScalarNonlinearFunction(
-                :*,
-                [
-                    mesh.points_meshes[i].quad_weights[q],
-                    transcribe_dyn_fun(
-                        integrand, i, q, model.phase_vars, model.dyn_var_vars,
-                        model.dif_dyn_vars, mesh,
-                    ),
-                ],
-            ) for q in 1:n_p_alg],
+            :*,
+            Any[time_var, MOI.ScalarNonlinearFunction(
+                :+,
+                [MOI.ScalarNonlinearFunction(
+                    :*,
+                    [
+                        mesh.points_meshes[i].quad_weights[q],
+                        transcribe_dyn_fun(
+                            integrand, i, q, model.phase_vars, time_var,
+                            model.dyn_var_vars, model.dif_dyn_vars, mesh,
+                        ),
+                    ],
+                ) for q in 1:n_p_alg],
+            )],
         ) for i in 1:n_h],
     )
 end
@@ -130,7 +169,8 @@ end
 function transcribe_integral(
     integrand::NDF,
     model::Optimizer,
-    mesh::FlexibleIntervalsMesh{PM,MM,BM}
+    mesh::FlexibleIntervalsMesh{PM,MM,BM},
+    time_var::Union{Float64, VAR}
 ) where {PM,MM<:CollocationMesh,BM}
 
     n_h = get_intervals_length(mesh)
@@ -143,7 +183,7 @@ function transcribe_integral(
     Δt_1 = 1.0 * flex_vars[1] - t_0
     Δt_n_h = t_f - 1.0 * flex_vars[end]
     Δt_inner = [1.0 * flex_vars[i] - 1.0 * flex_vars[i-1] for i in 2:(n_h-1)]
-    Δt = vcat(Δt_1, Δt_inner, Δt_n_h)
+    Δt = vcat(Δt_1, Δt_inner, Δt_n_h) .* time_var
 
     return MOI.ScalarNonlinearFunction(
         :+,
@@ -156,8 +196,8 @@ function transcribe_integral(
                     [
                         mesh.points_mesh.quad_weights[q],
                         transcribe_dyn_fun(
-                            integrand, i, q, model.phase_vars, model.dyn_var_vars,
-                            model.dif_dyn_vars, mesh,
+                            integrand, i, q, model.phase_vars, time_var,
+                            model.dyn_var_vars, model.dif_dyn_vars, mesh,
                         ),
                     ],
                 ) for q in 1:n_p_alg],  
@@ -169,7 +209,8 @@ end
 function transcribe_integral(
     integrand::NDF,
     model::Optimizer,
-    mesh::FixedIntervalsMesh{PM,MM,BM}
+    mesh::FixedIntervalsMesh{PM,MM,BM},
+    time_var::Union{Float64, VAR}
 ) where {PM,MM<:IntResidualMesh,BM}
 
     n_h = get_intervals_length(mesh)
@@ -178,17 +219,20 @@ function transcribe_integral(
     return MOI.ScalarNonlinearFunction(
         :+,
         [MOI.ScalarNonlinearFunction(
-            :+,
-            [MOI.ScalarNonlinearFunction(
-                :*,
-                [
-                    mesh.method_meshes[i].quad_points_mesh.quad_weights[q],
-                    transcribe_dyn_fun(
-                        integrand, i, q, model.phase_vars, model.dyn_var_vars,
-                        model.dif_dyn_vars, mesh,
-                    ),
-                ],
-            ) for q in 1:n_p_quad],
+            :*,
+            Any[time_var, MOI.ScalarNonlinearFunction(
+                :+,
+                [MOI.ScalarNonlinearFunction(
+                    :*,
+                    [
+                        mesh.method_meshes[i].quad_points_mesh.quad_weights[q],
+                        transcribe_dyn_fun(
+                            integrand, i, q, model.phase_vars, time_var,
+                            model.dyn_var_vars, model.dif_dyn_vars, mesh,
+                        ),
+                    ],
+                ) for q in 1:n_p_quad],
+            )],
         ) for i in 1:n_h],
     )
 end
@@ -196,7 +240,8 @@ end
 function transcribe_integral(
     integrand::NDF,
     model::Optimizer,
-    mesh::FlexibleIntervalsMesh{PM,MM,BM}
+    mesh::FlexibleIntervalsMesh{PM,MM,BM},
+    time_var::Union{Float64, VAR}
 ) where {PM,MM<:IntResidualMesh,BM}
 
     n_h = get_intervals_length(mesh)
@@ -209,7 +254,7 @@ function transcribe_integral(
     Δt_1 = 1.0 * flex_vars[1] - t_0
     Δt_n_h = t_f - 1.0 * flex_vars[end]
     Δt_inner = [1.0 * flex_vars[i] - 1.0 * flex_vars[i-1] for i in 2:(n_h-1)]
-    Δt = vcat(Δt_1, Δt_inner, Δt_n_h)
+    Δt = vcat(Δt_1, Δt_inner, Δt_n_h) .* time_var
 
     return MOI.ScalarNonlinearFunction(
         :+,
@@ -222,8 +267,8 @@ function transcribe_integral(
                     [
                         mesh.method_mesh.quad_points_mesh.quad_weights[q],
                         transcribe_dyn_fun(
-                            integrand, i, q, model.phase_vars, model.dyn_var_vars,
-                            model.dif_dyn_vars, mesh,
+                            integrand, i, q, model.phase_vars, time_var,
+                            model.dyn_var_vars, model.dif_dyn_vars, mesh,
                         ),
                     ],
                 ) for q in 1:n_p_quad],  
@@ -259,7 +304,8 @@ function transcribe_dif_least_square(
             MOI.ScalarNonlinearFunction(
                 :^,
                 [
-                    transcribe_dyn_fun(dif_fun, i, q, model.phase_vars,
+                    transcribe_dyn_fun(
+                        dif_fun, i, q, model.phase_vars, model.time_vars[phase],
                         model.dyn_var_vars, model.dif_dyn_vars, mesh
                     ),
                     2.0
@@ -301,7 +347,8 @@ function transcribe_alg_least_square(
             MOI.ScalarNonlinearFunction(
                 :^,
                 [
-                    transcribe_dyn_fun(alg_fun, i, q, model.phase_vars,
+                    transcribe_dyn_fun(
+                        alg_fun, i, q, model.phase_vars, model.time_vars[phase],
                         model.dyn_var_vars, model.dif_dyn_vars, mesh
                     ), 
                     2.0
@@ -392,14 +439,10 @@ function transcribe_grad_dyn_least_square(
 
     grad_res_funcs = Vector{MOI.AbstractFunction}()
     interval_vars = _get_interval_dyn_vars(model, i, phase)
+    dyn_res = transcribe_dyn_least_square(model, i, phase, mesh)
 
-    for dyn_var in interval_vars
-        
-        func = MOI.Nonlinear.SymbolicAD.derivative(
-                    transcribe_dyn_least_square(model, i, phase, mesh),
-                    dyn_var
-                )
-
+    for dyn_var in interval_vars   
+        func = MOI.Nonlinear.SymbolicAD.derivative(dyn_res, dyn_var)
         push!(grad_res_funcs, func)
     end
 
@@ -415,6 +458,9 @@ function _get_interval_dyn_vars(
     interval_vars = VAR[]
     for dyn_var in model.dif_dyn_vars
         append!(interval_vars, model.dyn_var_vars[dyn_var][i])
+    end
+    if model.time_vars[phase] isa VAR
+        push!(interval_vars, model.time_vars[phase])
     end
 
     return unique!(interval_vars)
