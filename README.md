@@ -2,11 +2,11 @@
 <p align="center">
 <img
     src="./docs/src/assets/logo.svg"
-    width=256px
+    width=128px
     >
 </p>
 
-# Integrated Residuals Solver
+# Interesso
 [//]: Badges
 [![Stable](https://img.shields.io/badge/docs-v0.1-blue.svg)](https://judo-dev.github.io/Interesso.jl/stable)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://judo-dev.github.io/Interesso.jl/dev)
@@ -14,7 +14,13 @@
 [![Coverage](https://codecov.io/gh/JuDO-dev/Interesso.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/JuDO-dev/Interesso.jl)
 
 [//]: Description
-Solves **Dynamic Feasibility** and **Dynamic Optimisation** problems (think Optimal Control) using an Integrated Residuals method.
+A powerful and extendable solver for nonlinear **Trajectory Optimization** (aka Optimal Control) problems using pseudo-spectral methods.
+
+## Highlights
+- **Flexible Intervals**: Supports flexible discretization intervals, avoiding mesh *h*-refinement.
+- **Tight Constraints**: Uses Bernstein polynomial coefficients to constraint dynamic variables tightly.
+- **JuMP Backend**: Choose your favorite optimizer from JuMP.jl's [supported solvers](https://jump.dev/JuMP.jl/stable/installation/#Supported-solvers).
+
 ## Installation
 
 ```julia

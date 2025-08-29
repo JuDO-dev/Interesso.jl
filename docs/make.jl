@@ -6,7 +6,9 @@ DocMeta.setdocmeta!(Interesso, :DocTestSetup, :(using Interesso); recursive=true
 
 const _PAGES = [
     "Home" => "index.md",
-    "Examples" => "examples.md",
+    "Examples" => [
+        "examples/cartpole.md",
+    ],
     "API Reference" => [
         "reference/interpolants.md",
         "reference/points.md",
