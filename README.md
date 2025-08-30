@@ -25,5 +25,8 @@ A powerful and extendable solver for nonlinear **Trajectory Optimization** (aka 
 
 ```julia
 julia> ]
-  pkg> add https://github.com/JuDO-dev/Interesso.jl
+  pkg> add Interesso
 ```
+
+## Usage
+Find usage examples in the [documentation](https://judo-dev.github.io/Interesso.jl).
