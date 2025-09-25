@@ -28,7 +28,8 @@ const LINKAGES = OrderedDict{
     Tuple{DOI.Linkage{DYN_VAR},EQ64}
 }
 
-const OBJ = DOI.Bolza{NBF,DOI.MultiPhaseIntegral{NDF}}
+const BOLZA = DOI.Bolza{NBF,DOI.MultiPhaseIntegral{NDF}}
+const OBJ = Union{NBF, DOI.MultiPhaseIntegral{NDF}, BOLZA}
 
 const SOLS{F<:DOI.AbstractDynamicFunction} = OrderedDict{
     F,

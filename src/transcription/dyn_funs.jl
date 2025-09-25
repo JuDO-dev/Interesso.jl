@@ -125,6 +125,65 @@ function transcribe_dyn_fun(
     return points_quad[q]
 end
 
+
+# Derivative of Dynamic Variable
+function transcribe_dyn_fun(
+    derivative::DOI.Derivative{DYN_VAR},
+    i::Integer,
+    q::Integer,
+    ::PHS_VARS,
+    time_var::TIME_VAR,
+    dyn_var_vars::DYN_VAR_VARS,
+    ::AbstractSet{DYN_VAR},
+    mesh::FixedIntervalsMesh,
+)
+    vars = dyn_var_vars[derivative.dyn_fun]
+    n_p_dif = get_points_dif_length(mesh)
+
+    differentiation =
+        mesh.method_meshes[i].interpolant.interpolant_dif *
+        mesh.points_meshes[i].differentiation
+
+    numer = sum(differentiation[q, k] * vars[i][k] for k in 1:n_p_dif)
+    return MOI.ScalarNonlinearFunction(:/, Any[numer, time_var])
+end
+
+function transcribe_dyn_fun(
+    derivative::DOI.Derivative{DYN_VAR},
+    i::Integer,
+    q::Integer,
+    phase_vars::PHS_VARS,
+    time_var::TIME_VAR,
+    dyn_var_vars::DYN_VAR_VARS,
+    ::AbstractSet{DYN_VAR},
+    mesh::FlexibleIntervalsMesh,
+)
+    vars = dyn_var_vars[derivative.dyn_fun]
+    n_p_dif = get_points_dif_length(mesh)
+
+    differentiation =
+        mesh.method_mesh.interpolant.interpolant_dif *
+        mesh.points_mesh.differentiation
+
+    numer = sum(2.0 * differentiation[q, k] * vars[i][k] for k in 1:n_p_dif)
+
+    flex_vars = phase_vars[DOI.phase_index(derivative.dyn_fun)]
+    n_h = get_intervals_length(mesh)
+    t_0 = mesh.fixed.points_meshes[1].t_a
+    t_f = mesh.fixed.points_meshes[end].t_b
+
+    Δt = if i == 1
+        1.0 * flex_vars[1] - t_0
+    elseif i == n_h
+        t_f - 1.0 * flex_vars[end]
+    else
+        1.0 * flex_vars[i] - 1.0 * flex_vars[i - 1]
+    end
+
+    denom = MOI.ScalarNonlinearFunction(:*, Any[time_var, Δt])
+    return MOI.ScalarNonlinearFunction(:/, Any[numer, denom])
+end
+
 # Nonlinear Dynamic Function
 function transcribe_dyn_fun(
     nl_dyn_fun::DOI.NonlinearDynamicFunction,

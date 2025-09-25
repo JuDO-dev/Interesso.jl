@@ -53,3 +53,43 @@ function MOI.get(model::Optimizer, ::DOI.DynamicVariableSolution, dyn_var::DYN_V
     end
     return model.sol_dyn_vars[phase][dyn_var]
 end
+
+function get_solutions(model::Optimizer)
+    warm_start = Dict{String, DOI.AbstractDynamicSolution}()
+
+    for phase in model.phases
+        for dyn_var in model.dyn_vars[phase]
+            name = get(model.dyn_var_names, dyn_var, nothing)
+            if name !== nothing
+                if name == "t"
+                    error("Avoid setting variables as name t.")
+                end
+                sol = MOI.get(model, DOI.DynamicVariableSolution(), dyn_var)
+                warm_start[name] = sol
+            end
+        end
+
+        # if model.time_vars[phase] isa VAR
+        #     val = MOI.get(model.inner, MOI.VariablePrimal(), model.time_vars[phase])
+        #     push!(sol_t, val)
+        #     warm_start["t"] = sol_t
+        # end
+
+    end
+    return warm_start
+end
+
+function warmstart!(
+    model::Optimizer,
+    starts::AbstractDict{String, T},
+) where {T<:DOI.AbstractDynamicSolution}
+
+    for (dyn_var, name) in model.dyn_var_names
+        sol = get(starts, name, nothing)
+        if !isnothing(sol)
+            phase = DOI.phase_index(dyn_var)
+            model.start_dyn_vars[phase][dyn_var] = starts[name]
+        end
+    end
+    return nothing
+end

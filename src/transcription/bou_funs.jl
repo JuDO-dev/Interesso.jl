@@ -278,7 +278,7 @@ function transcribe_integral(
 end
 
 # Bolza
-function transcribe_bou_fun(bolza::OBJ, model::Optimizer, meshes::MESHES)
+function transcribe_bou_fun(bolza::BOLZA, model::Optimizer, meshes::MESHES)
     return MOI.ScalarNonlinearFunction(
         :+,
         [
@@ -292,7 +292,7 @@ function transcribe_dif_least_square(
     model::Optimizer,
     i::Integer,
     phase::PHS,
-    mesh::AbstractIntervalsMesh{PM,MM,BM},
+    mesh::FixedIntervalsMesh{PM,MM,BM},
 ) where {PM,MM<:IntResidualMesh,BM}
 
     dif_cons = model.dif_cons[phase]
@@ -300,17 +300,44 @@ function transcribe_dif_least_square(
 
     return MOI.ScalarNonlinearFunction(
         :+,
-        [   
-            MOI.ScalarNonlinearFunction(
-                :^,
-                [
+        [
+            MOI.ScalarNonlinearFunction(:*, [
+                mesh.method_meshes[i].quad_points_mesh.quad_weights[q],
+                MOI.ScalarNonlinearFunction(:^, [
                     transcribe_dyn_fun(
                         dif_fun, i, q, model.phase_vars, model.time_vars[phase],
                         model.dyn_var_vars, model.dif_dyn_vars, mesh
                     ),
                     2.0
-                ] 
-            ) for (dif_fun, _) in values(dif_cons) for q in 1:n_p_quad
+                ])
+            ]) for (dif_fun, _) in values(dif_cons) for q in 1:n_p_quad
+        ]
+    ) 
+end
+
+function transcribe_dif_least_square(
+    model::Optimizer,
+    i::Integer,
+    phase::PHS,
+    mesh::FlexibleIntervalsMesh{PM,MM,BM},
+) where {PM,MM<:IntResidualMesh,BM}
+
+    dif_cons = model.dif_cons[phase]
+    n_p_quad = get_points_quad_length(mesh)
+
+    return MOI.ScalarNonlinearFunction(
+        :+,
+        [
+            MOI.ScalarNonlinearFunction(:*, [
+                mesh.method_mesh.quad_points_mesh.quad_weights[q],
+                MOI.ScalarNonlinearFunction(:^, [
+                    transcribe_dyn_fun(
+                        dif_fun, i, q, model.phase_vars, model.time_vars[phase],
+                        model.dyn_var_vars, model.dif_dyn_vars, mesh
+                    ),
+                    2.0
+                ])
+            ]) for (dif_fun, _) in values(dif_cons) for q in 1:n_p_quad
         ]
     ) 
 end
@@ -335,7 +362,7 @@ function transcribe_alg_least_square(
     model::Optimizer,
     i::Integer,
     phase::PHS,
-    mesh::AbstractIntervalsMesh{PM,MM,BM},
+    mesh::FixedIntervalsMesh{PM,MM,BM},
 ) where {PM,MM<:IntResidualMesh,BM}
 
     alg_cons = model.alg_cons[phase]
@@ -344,16 +371,43 @@ function transcribe_alg_least_square(
     return MOI.ScalarNonlinearFunction(
         :+,
         [
-            MOI.ScalarNonlinearFunction(
-                :^,
-                [
+            MOI.ScalarNonlinearFunction(:*, [
+                mesh.method_meshes[i].quad_points_mesh.quad_weights[q],
+                MOI.ScalarNonlinearFunction(:^, [
                     transcribe_dyn_fun(
                         alg_fun, i, q, model.phase_vars, model.time_vars[phase],
                         model.dyn_var_vars, model.dif_dyn_vars, mesh
                     ), 
                     2.0
-                ]
-            ) for (alg_fun, _) in values(alg_cons) for q in 1:n_p_quad
+                ])
+            ]) for (alg_fun, _) in values(alg_cons) for q in 1:n_p_quad
+        ]
+    )
+end
+
+function transcribe_alg_least_square(
+    model::Optimizer,
+    i::Integer,
+    phase::PHS,
+    mesh::FlexibleIntervalsMesh{PM,MM,BM},
+) where {PM,MM<:IntResidualMesh,BM}
+
+    alg_cons = model.alg_cons[phase]
+    n_p_quad = get_points_quad_length(mesh)
+
+    return MOI.ScalarNonlinearFunction(
+        :+,
+        [
+            MOI.ScalarNonlinearFunction(:*, [
+                mesh.method_mesh.quad_points_mesh.quad_weights[q],
+                MOI.ScalarNonlinearFunction(:^, [
+                    transcribe_dyn_fun(
+                        alg_fun, i, q, model.phase_vars, model.time_vars[phase],
+                        model.dyn_var_vars, model.dif_dyn_vars, mesh
+                    ), 
+                    2.0
+                ])
+            ]) for (alg_fun, _) in values(alg_cons) for q in 1:n_p_quad
         ]
     )
 end

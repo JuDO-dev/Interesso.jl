@@ -17,7 +17,7 @@ include(joinpath(@__DIR__, "..", "example", "cart_pole.jl"))
     model = Interesso.Optimizer(
         inner=optimizer,
         default_intervals=FlexibleIntervals(20, 0.0),
-        default_points=LGRPoints(3; order_control=2),
+        default_points=LGRPoints(3, 2),
         default_method=IntResidual(5),
         default_bounds=SampledBounds(10)
     )

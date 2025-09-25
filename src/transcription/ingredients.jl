@@ -1,9 +1,9 @@
-function transcribe_phase!(::Optimizer, phase::PHS, ::FixedIntervalsMesh)
+function transcribe_phase!(model::Optimizer, phase::PHS, ::FixedIntervalsMesh)
     
     if !haskey(model.phase_finals, phase)
         Δt = MOI.add_variable(model.inner)
         MOI.set(model.inner, MOI.VariablePrimalStart(), Δt, 1.0)
-        MOI.add_constraint(model.inner, Δt, MOI.GreaterThan(1e-8))
+        MOI.add_constraint(model.inner, Δt, MOI.GreaterThan(1e-6))
         model.time_vars[phase] = Δt
     else
         model.time_vars[phase] = 1.0
@@ -16,7 +16,7 @@ function transcribe_phase!(model::Optimizer, phase::PHS, mesh::FlexibleIntervals
     if !haskey(model.phase_finals, phase)
         Δt = MOI.add_variable(model.inner)
         MOI.set(model.inner, MOI.VariablePrimalStart(), Δt, 1.0)
-        MOI.add_constraint(model.inner, Δt, MOI.GreaterThan(0.0))
+        MOI.add_constraint(model.inner, Δt, MOI.GreaterThan(1e-6))
         model.time_vars[phase] = Δt
     else
         model.time_vars[phase] = 1.0
@@ -316,7 +316,7 @@ function transcribe_dif_cons!(
             MOI.add_constraint(
                 model.inner,
                 f,
-                MOI.Interval(-1e-2, 1e-2),
+                MOI.Interval(-1e-4, 1e-4),
             )
             push!(model.dif_res_funcs, f)
         end
@@ -336,7 +336,7 @@ function transcribe_alg_cons!(
         MOI.add_constraint(
             model.inner,
             f,
-            MOI.LessThan(1e0),
+            MOI.LessThan(1e-2),
         )
         push!(model.res_funcs, f)
     end

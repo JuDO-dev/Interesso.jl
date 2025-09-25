@@ -30,6 +30,7 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
 
     # Start
     start_dyn_vars::OrderedDict{PHS,STARTS}
+    dyn_var_names::OrderedDict{DYN_VAR,String}
 
     # Phase Attributes
     phase_intervals::OrderedDict{PHS,<:AbstractIntervals}
@@ -97,6 +98,7 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
             0,           
             0,
             OrderedDict{PHS,STARTS}(),
+            OrderedDict{DYN_VAR,String}(),
             OrderedDict{PHS,AbstractIntervals}(),
             OrderedDict{PHS,AbstractPoints}(),
             OrderedDict{PHS,AbstractMethod}(),
@@ -136,6 +138,7 @@ function MOI.empty!(model::Optimizer)
     model.last_index_alg_cons = 0
     model.last_index_linkages = 0
     empty!(model.start_dyn_vars)
+    empty!(model.dyn_var_names)
     empty!(model.phase_intervals)
     empty!(model.phase_points)
     empty!(model.phase_method)
@@ -165,6 +168,7 @@ function MOI.is_empty(model::Optimizer)
         iszero(model.last_index_phases)   && iszero(model.last_index_dyn_vars) &&
         iszero(model.last_index_dif_cons) && iszero(model.last_index_alg_cons) &&
         iszero(model.last_index_linkages) && isempty(model.start_dyn_vars)     &&
+        isempty(model.dyn_var_names)      &&
         isempty(model.phase_intervals)    && isempty(model.phase_points)       &&
         isempty(model.phase_method)       && isempty(model.phase_bounds)       &&
         isempty(model.meshes)             && MOI.is_empty(model.inner)         && 

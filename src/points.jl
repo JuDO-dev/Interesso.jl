@@ -34,15 +34,32 @@ struct LGRPoints <: AbstractPoints
     points_alg_τ::Vector{Float64}
     quad_weights_τ::Vector{Float64}
 
-    function LGRPoints(order_dif::Integer; order_control::Integer = order_dif)
+    function LGRPoints(order_dif::Integer)
 
-        if !(order_dif ≥ 1) || !(order_control ≥ 1)
-            throw(DomainError("Please ensure polynomial order ≥ 1."))
-        elseif order_dif < order_control
-            throw(DomainError("Please ensure states order ≥ control order."))
+        if order_dif < 1
+            throw(DomainError("Please ensure state polynomial order ≥ 1."))
         end
 
-        points_alg_τ, ~ = FGQ.gaussradau(order_control)
+        points_alg_τ, ~ = FGQ.gaussradau(order_dif)
+        points_dif_τ, quad_weights_τ = FGQ.gaussradau(order_dif)
+        points_dif_τ = vcat(points_dif_τ, 1.0)
+
+        return new(points_dif_τ, points_alg_τ, quad_weights_τ)
+    end
+
+    function LGRPoints(order_dif::Integer, order_control::Integer)
+
+        if order_dif < 1
+            throw(DomainError("Please ensure state polynomial order ≥ 1."))
+        end
+        if order_control < 0
+            throw(DomainError("Please ensure control polynomial order ≥ 0."))
+        end
+        if order_dif <= order_control
+            throw(DomainError("Please ensure states order > control order."))
+        end
+
+        points_alg_τ, ~ = FGQ.gaussradau(order_control+1)
         points_dif_τ, quad_weights_τ = FGQ.gaussradau(order_dif)
         points_dif_τ = vcat(points_dif_τ, 1.0)
 

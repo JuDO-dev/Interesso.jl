@@ -189,6 +189,34 @@ function MOI.add_constraint(model::Optimizer, dyn_var_final::DOI.Final{DYN_VAR},
 end
 
 
+# Dynamic variable names
+
+MOI.supports(::Optimizer, ::DOI.DynamicVariableName) = true
+
+function MOI.set(
+    model::Optimizer,
+    ::DOI.DynamicVariableName,
+    dyn_var::DYN_VAR,
+    name::String,
+)
+    _throw_if_invalid_index(model, dyn_var)
+
+    model.dyn_var_names[dyn_var] = name
+
+    return nothing
+end
+
+function MOI.get(
+    model::Optimizer,
+    ::DOI.DynamicVariableName,
+    dyn_var::DYN_VAR,
+)
+    _throw_if_invalid_index(model, dyn_var)
+
+    return get(model.dyn_var_names, dyn_var, nothing)
+end
+
+
 # Dynamic variable starts
 
 MOI.supports(::Optimizer, ::DOI.DynamicVariableStart) = true
@@ -272,20 +300,44 @@ function MOI.add_constraint(
     index = MOI.ConstraintIndex{DOI.NonlinearDynamicFunction,EQ64}(model.last_index_alg_cons + 1)
     model.alg_cons[phase][index] = (alg_fun, set)
     model.last_index_alg_cons += 1
-
+    _push_dif_vars!(model, alg_fun)
     return index
+end
+
+function _push_dif_vars!(::Optimizer, ::Any)
+    return nothing
+end
+
+function _push_dif_vars!(model::Optimizer, fun::DOI.NonlinearDynamicFunction)
+    for arg in fun.args
+        _push_dif_vars!(model, arg)
+    end
+    return nothing
+end
+
+function _push_dif_vars!(model::Optimizer, fun::DOI.Derivative{DYN_VAR})
+    if !(fun.dyn_fun in model.dif_dyn_vars)
+        push!(model.dif_dyn_vars, fun.dyn_fun)
+    end
+    return nothing
 end
 
 
 # Objective
 
-MOI.supports(::Optimizer, ::MOI.ObjectiveFunction{OBJ}) = true
+function MOI.supports(::Optimizer, ::MOI.ObjectiveFunction{T}) where {T<:OBJ}
+    return true
+end
+
 function MOI.set(
     model::Optimizer,
-    ::MOI.ObjectiveFunction{OBJ},
-    obj_fun::OBJ,
-)
+    ::MOI.ObjectiveFunction{T},
+    obj_fun::T,
+) where {T<:OBJ}
     model.objective = obj_fun
     return nothing
 end
-MOI.get(model::Optimizer, ::MOI.ObjectiveFunction{OBJ}) = model.objective
+
+function MOI.get(model::Optimizer, ::MOI.ObjectiveFunction{T}) where {T<:OBJ}
+    return model.objective
+end
