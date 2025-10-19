@@ -9,7 +9,7 @@ const u_max = 20.0
 const r_max = 2.0
 
 
-function cart_pole(
+function cart_pole_im(
     model::Interesso.Optimizer;
     starts::AbstractDict{String,<:DOI.AbstractDynamicSolution}=Dict{String,DOI.AbstractDynamicSolution}()
 ) 
@@ -32,9 +32,9 @@ function cart_pole(
 
     MOI.set(model, DOI.DynamicVariableName(), u, "u")
     MOI.set(model, DOI.DynamicVariableName(), r, "r")
-    MOI.set(model, DOI.DynamicVariableName(), θ, "θ")
-    MOI.set(model, DOI.DynamicVariableName(), v, "ν")
-    MOI.set(model, DOI.DynamicVariableName(), ω, "ω")
+    MOI.set(model, DOI.DynamicVariableName(), θ, "theta")
+    MOI.set(model, DOI.DynamicVariableName(), v, "v")
+    MOI.set(model, DOI.DynamicVariableName(), ω, "omega")
 
     ## Inequality constraint
     MOI.add_constraint(model, u, MOI.Interval(-u_max, u_max))
@@ -54,9 +54,6 @@ function cart_pole(
     # Starts
     MOI.set(model, DOI.DynamicVariableStart(), r, LinearInterpolant(0.0, 1.0))
     MOI.set(model, DOI.DynamicVariableStart(), θ, LinearInterpolant(0.0, 1.0 * pi))
-    MOI.set(model, DOI.DynamicVariableStart(), u, LinearInterpolant(0.0, 0.0))
-    MOI.set(model, DOI.DynamicVariableStart(), v, LinearInterpolant(0.0, 0.0))
-    MOI.set(model, DOI.DynamicVariableStart(), ω, LinearInterpolant(0.0, 0.0))
 
     # override defaults for variables present in `starts`
     Interesso.warmstart!(model, starts)
@@ -80,51 +77,41 @@ function cart_pole(
         NDF(:*, [-1.0, u, cosθ], t),
         NDF(:*, [-1.0 * (m_1 + m_2) * g, sinθ], t),
     ], t)
-    den_ω = NDF(:*, [
-        l,
-        NDF(:+, [
-            m_1,
-            NDF(:*, [m_2, NDF(:^, [sinθ, 2], t)], t),
-        ], t)
+    den_ω = NDF(:+, [
+        l * m_1,
+        NDF(:*, [l * m_2, NDF(:^, [sinθ, 2], t)], t),
     ], t)
 
     MOI.add_constraint(
         model,
         DOI.ExplicitDifferentialFunction(
             r,
-            NDF(:*, [1.0, v], t),            
+            NDF(:+, Any[v], t),            
         ),
         MOI.EqualTo(0.0),
     )
     MOI.add_constraint(
         model,
-        DOI.ExplicitDifferentialFunction(
-            v,
-            NDF(:/, [num_v, den_v], t),            
-        ),
+        NDF(:-, Any[NDF(:*, Any[DOI.Derivative(v), den_v], t), num_v], t),
         MOI.EqualTo(0.0),
     )
     MOI.add_constraint(
         model,
         DOI.ExplicitDifferentialFunction(
             θ,
-            NDF(:*, [1.0, ω], t),            
+            NDF(:+, Any[ω], t),            
         ),
         MOI.EqualTo(0.0),
     )
     MOI.add_constraint(
         model,
-        DOI.ExplicitDifferentialFunction(
-            ω,
-            NDF(:/, [num_ω, den_ω], t),            
-        ),
+        NDF(:-, Any[NDF(:*, Any[DOI.Derivative(ω), den_ω], t), num_ω], t),
         MOI.EqualTo(0.0),
     )
 
     ## Objective Function
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
     obj_fun = DOI.MultiPhaseIntegral([NDF(:^, [u, 2], t)])
-
     MOI.set(model, MOI.ObjectiveFunction{typeof(obj_fun)}(), obj_fun)
 
     MOI.optimize!(model)
@@ -134,5 +121,5 @@ function cart_pole(
     r_sol = MOI.get(model, DOI.DynamicVariableSolution(), r)
     v_sol = MOI.get(model, DOI.DynamicVariableSolution(), v)
 
-    return u_sol, r_sol, v_sol
+    return u_sol, r_sol, v_sol, model
 end

@@ -1,11 +1,11 @@
-function double_integrator(model::Interesso.Optimizer)
+function van_der_pol(model::Interesso.Optimizer)
 
     @assert MOI.is_empty(model)
 
     ## Time as a phase
     t = DOI.add_phase(model)
     MOI.add_constraint(model, DOI.Initial(t), MOI.EqualTo(0.0))
-    MOI.add_constraint(model, DOI.Final(t), MOI.EqualTo(10.0))
+    MOI.add_constraint(model, DOI.Final(t), MOI.EqualTo(4.0))
 
     ## Input Dynamic Variable
     u = DOI.add_dynamic_variable(model, t)
@@ -15,17 +15,11 @@ function double_integrator(model::Interesso.Optimizer)
     v = DOI.add_dynamic_variable(model, t)
 
     ## Inequality constraint
-    MOI.add_constraint(model, u, MOI.Interval(-10.0, 10.0))
-    MOI.add_constraint(model, x, MOI.Interval(-6.0, 6.0))
-    MOI.add_constraint(model, v, MOI.Interval(-10.0, 10.0))
+    MOI.add_constraint(model, u, MOI.Interval(-1.0, 1.0))
 
     ## Boundary Conditions
     MOI.add_constraint(model, DOI.Initial(x), MOI.EqualTo(0.0))
-    MOI.add_constraint(model, DOI.Initial(v), MOI.EqualTo(5.0))
-
-    ## Differential Equations
-    sin_t = NDF(:sin, [t], t)
-    cos_t = NDF(:cos, [t], t)
+    MOI.add_constraint(model, DOI.Initial(v), MOI.EqualTo(1.0))
 
     MOI.add_constraint(
         model,
@@ -40,20 +34,18 @@ function double_integrator(model::Interesso.Optimizer)
         model,
         DOI.ExplicitDifferentialFunction(
             v,
-            NDF(:+, Any[u], t),            
+            NDF(:-, [NDF(:+, [NDF(:*, [NDF(:-, [1.0, NDF(:^, [x, 2.0], t)], t), v], t), u], t), x], t),           
         ),
         MOI.EqualTo(0.0),
     )
- 
 
     ## Objective Function
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
     obj_fun = DOI.MultiPhaseIntegral(
         [
             NDF(:+, [
-                NDF(:^, [NDF(:-, [x, NDF(:*, [5.0, sin_t], t)], t), 2.0], t),
-                NDF(:^, [NDF(:-, [v, NDF(:*, [5.0, cos_t], t)], t), 2.0], t),
-                NDF(:*, [0.0001, NDF(:^, [u, 2.0], t)], t)
+                NDF(:*, [0.5, NDF(:^, [x, 2.0], t)], t),
+                NDF(:*, [0.5, NDF(:^, [v, 2.0], t)], t),
             ], t)
         ]
     )

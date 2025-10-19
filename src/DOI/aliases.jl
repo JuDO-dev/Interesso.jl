@@ -23,6 +23,11 @@ const ALG_CONS = OrderedDict{
     Tuple{NDF,EQ64},
 }
 
+const BOU_CONS = OrderedDict{
+    Union{MOI.ConstraintIndex{NBF,EQ64}, MOI.ConstraintIndex{NBF,IV64}},
+    Tuple{NBF,EI64},
+}
+
 const LINKAGES = OrderedDict{
     MOI.ConstraintIndex{DOI.Linkage{DYN_VAR},EQ64},
     Tuple{DOI.Linkage{DYN_VAR},EQ64}

@@ -19,6 +19,7 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
     dif_dyn_vars::OrderedSet{DYN_VAR}
     dif_cons::OrderedDict{PHS,DIF_CONS}
     alg_cons::OrderedDict{PHS,ALG_CONS}
+    bou_cons::BOU_CONS
     objective_sense::MOI.OptimizationSense
     objective::Union{OBJ,Nothing}
 
@@ -26,6 +27,7 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
     last_index_dyn_vars::Int64
     last_index_dif_cons::Int64
     last_index_alg_cons::Int64
+    last_index_bou_cons::Int64
     last_index_linkages::Int64
 
     # Start
@@ -90,8 +92,10 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
             OrderedSet{DYN_VAR}(),
             OrderedDict{PHS,DIF_CONS}(),
             OrderedDict{PHS,ALG_CONS}(),
+            BOU_CONS(),
             MOI.FEASIBILITY_SENSE,
             nothing,
+            0,
             0,
             0,
             0,
@@ -130,12 +134,14 @@ function MOI.empty!(model::Optimizer)
     empty!(model.dif_dyn_vars)
     empty!(model.dif_cons)
     empty!(model.alg_cons)
+    empty!(model.bou_cons)
     model.objective_sense = MOI.FEASIBILITY_SENSE
     model.objective = nothing
     model.last_index_phases = 0
     model.last_index_dyn_vars = 0
     model.last_index_dif_cons = 0
     model.last_index_alg_cons = 0
+    model.last_index_bou_cons = 0
     model.last_index_linkages = 0
     empty!(model.start_dyn_vars)
     empty!(model.dyn_var_names)
@@ -151,6 +157,8 @@ function MOI.empty!(model::Optimizer)
     empty!(model.penalty_funs)
     empty!(model.sol_dyn_vars)
     empty!(model.sol_derivatives)
+    empty!(model.dif_res_funcs)
+    empty!(model.res_funcs)
 
     return nothing
 end
@@ -163,12 +171,13 @@ function MOI.is_empty(model::Optimizer)
         isempty(model.dyn_var_initials)   && isempty(model.dyn_var_finals)     &&
         isempty(model.linkages)           && isempty(model.dif_dyn_vars)       &&
         isempty(model.dif_cons)           && isempty(model.alg_cons)           &&
+        isempty(model.bou_cons)           &&
         model.objective_sense == MOI.FEASIBILITY_SENSE                         &&
         isnothing(model.objective)        &&
         iszero(model.last_index_phases)   && iszero(model.last_index_dyn_vars) &&
         iszero(model.last_index_dif_cons) && iszero(model.last_index_alg_cons) &&
-        iszero(model.last_index_linkages) && isempty(model.start_dyn_vars)     &&
-        isempty(model.dyn_var_names)      &&
+        iszero(model.last_index_bou_cons) && iszero(model.last_index_linkages) &&
+        isempty(model.start_dyn_vars)     && isempty(model.dyn_var_names)      &&
         isempty(model.phase_intervals)    && isempty(model.phase_points)       &&
         isempty(model.phase_method)       && isempty(model.phase_bounds)       &&
         isempty(model.meshes)             && MOI.is_empty(model.inner)         && 
@@ -220,14 +229,16 @@ function MOI.optimize!(model::Optimizer)
         
         transcribe_bounds!(model, phase, model.meshes[phase])
     
-        transcribe_initials!(model, phase, model.meshes[phase])
-    
-        transcribe_finals!(model, phase, model.meshes[phase])
-    
         transcribe_dif_cons!(model, phase, model.meshes[phase])
 
         transcribe_alg_cons!(model, phase, model.meshes[phase])
     end
+
+    transcribe_initials!(model, model.meshes)
+    
+    transcribe_finals!(model, model.meshes)
+
+    transcribe_bou_cons!(model, model.meshes)
 
     transcribe_linkages!(model, model.meshes)
 

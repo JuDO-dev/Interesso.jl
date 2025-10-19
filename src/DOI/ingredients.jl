@@ -28,6 +28,44 @@ function MOI.is_valid(model::Optimizer, con::MOI.ConstraintIndex)
 end
 
 
+# Boundary Conditions
+
+MOI.supports_constraint(
+    ::Optimizer,
+    ::Type{<:DOI.AbstractBoundaryFunction},
+    ::Type{<:MOI.AbstractScalarSet},
+) = true
+
+function MOI.add_constraint(
+    model::Optimizer,
+    fun::BF,
+    set::S,
+) where {BF<:DOI.AbstractBoundaryFunction,S<:MOI.AbstractScalarSet}
+
+    index = MOI.ConstraintIndex{BF,S}(model.last_index_bou_cons + 1)
+    model.bou_cons[index] = (fun, set)
+    model.last_index_bou_cons += 1
+
+    return index
+end
+
+function MOI.get(
+    model::Optimizer,
+    ::MOI.ConstraintFunction,
+    con::MOI.ConstraintIndex{BF,S},
+) where {BF<:DOI.AbstractBoundaryFunction,S<:MOI.AbstractScalarSet}
+    return model.bou_cons[con][1]
+end
+
+function MOI.get(
+    model::Optimizer,
+    ::MOI.ConstraintSet,
+    con::MOI.ConstraintIndex{BF,S},
+) where {BF<:DOI.AbstractBoundaryFunction,S<:MOI.AbstractScalarSet}
+    return model.bou_cons[con][2]
+end
+
+
 # Phases
 
 DOI.supports_phases(::Optimizer) = true
@@ -38,9 +76,9 @@ function DOI.add_phase(model::Optimizer)
     push!(model.phases, phase)
 
     model.dyn_vars[phase]         = OrderedSet{DYN_VAR}()
-    model.dyn_var_bounds[phase]   = OrderedDict{DYN_VAR,EQ64}()
-    model.dyn_var_initials[phase] = OrderedDict{DYN_VAR,EQ64}()
-    model.dyn_var_finals[phase]   = OrderedDict{DYN_VAR,EQ64}()
+    model.dyn_var_bounds[phase]   = OrderedDict{DYN_VAR,IV64}()
+    model.dyn_var_initials[phase] = OrderedDict{DYN_VAR,EI64}()
+    model.dyn_var_finals[phase]   = OrderedDict{DYN_VAR,EI64}()
     model.dif_cons[phase]         = DIF_CONS()
     model.alg_cons[phase]         = ALG_CONS()
     model.start_dyn_vars[phase]   = STARTS()
@@ -166,7 +204,7 @@ function MOI.add_constraint(model::Optimizer, dyn_var_initial::DOI.Initial{DYN_V
         throw(MOI.AddConstraintNotAllowed{typeof(dyn_var_initial),EI64}("Initial value already set."))
     end
 
-   model.dyn_var_initials[phase][dyn_var] = set
+    model.dyn_var_initials[phase][dyn_var] = set
 
     return MOI.ConstraintIndex{DOI.Initial{DYN_VAR},EI64}(dyn_var.value)
 end

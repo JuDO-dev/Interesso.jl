@@ -288,14 +288,15 @@ function transcribe_bou_fun(bolza::BOLZA, model::Optimizer, meshes::MESHES)
     )
 end
 
+# least-square dynamics
 function transcribe_dif_least_square(
     model::Optimizer,
+    dif_fun::DIF_FUN,
     i::Integer,
     phase::PHS,
     mesh::FixedIntervalsMesh{PM,MM,BM},
 ) where {PM,MM<:IntResidualMesh,BM}
 
-    dif_cons = model.dif_cons[phase]
     n_p_quad = get_points_quad_length(mesh)
 
     return MOI.ScalarNonlinearFunction(
@@ -310,21 +311,21 @@ function transcribe_dif_least_square(
                     ),
                     2.0
                 ])
-            ]) for (dif_fun, _) in values(dif_cons) for q in 1:n_p_quad
+            ]) for q in 1:n_p_quad
         ]
     ) 
 end
 
 function transcribe_dif_least_square(
     model::Optimizer,
+    dif_fun::DIF_FUN,
     i::Integer,
     phase::PHS,
     mesh::FlexibleIntervalsMesh{PM,MM,BM},
 ) where {PM,MM<:IntResidualMesh,BM}
 
-    dif_cons = model.dif_cons[phase]
     n_p_quad = get_points_quad_length(mesh)
-
+    
     return MOI.ScalarNonlinearFunction(
         :+,
         [
@@ -337,7 +338,26 @@ function transcribe_dif_least_square(
                     ),
                     2.0
                 ])
-            ]) for (dif_fun, _) in values(dif_cons) for q in 1:n_p_quad
+            ]) for q in 1:n_p_quad
+        ]
+    ) 
+end
+
+function transcribe_dif_least_square(
+    model::Optimizer,
+    i::Integer,
+    phase::PHS,
+    mesh::AbstractIntervalsMesh{PM,MM,BM},
+) where {PM,MM<:IntResidualMesh,BM}
+
+    dif_cons = model.dif_cons[phase]
+
+    return MOI.ScalarNonlinearFunction(
+        :+,
+        [
+            transcribe_dif_least_square(
+                model, dif_fun, i, phase, mesh
+            ) for (dif_fun, _) in values(dif_cons)
         ]
     ) 
 end
@@ -360,12 +380,12 @@ end
 
 function transcribe_alg_least_square(
     model::Optimizer,
+    alg_fun::NDF,
     i::Integer,
     phase::PHS,
     mesh::FixedIntervalsMesh{PM,MM,BM},
 ) where {PM,MM<:IntResidualMesh,BM}
 
-    alg_cons = model.alg_cons[phase]
     n_p_quad = get_points_quad_length(mesh)
 
     return MOI.ScalarNonlinearFunction(
@@ -377,24 +397,24 @@ function transcribe_alg_least_square(
                     transcribe_dyn_fun(
                         alg_fun, i, q, model.phase_vars, model.time_vars[phase],
                         model.dyn_var_vars, model.dif_dyn_vars, mesh
-                    ), 
+                    ),
                     2.0
                 ])
-            ]) for (alg_fun, _) in values(alg_cons) for q in 1:n_p_quad
+            ]) for q in 1:n_p_quad
         ]
-    )
+    ) 
 end
 
 function transcribe_alg_least_square(
     model::Optimizer,
+    alg_fun::NDF,
     i::Integer,
     phase::PHS,
     mesh::FlexibleIntervalsMesh{PM,MM,BM},
 ) where {PM,MM<:IntResidualMesh,BM}
 
-    alg_cons = model.alg_cons[phase]
     n_p_quad = get_points_quad_length(mesh)
-
+    
     return MOI.ScalarNonlinearFunction(
         :+,
         [
@@ -404,10 +424,29 @@ function transcribe_alg_least_square(
                     transcribe_dyn_fun(
                         alg_fun, i, q, model.phase_vars, model.time_vars[phase],
                         model.dyn_var_vars, model.dif_dyn_vars, mesh
-                    ), 
+                    ),
                     2.0
                 ])
-            ]) for (alg_fun, _) in values(alg_cons) for q in 1:n_p_quad
+            ]) for q in 1:n_p_quad
+        ]
+    ) 
+end
+
+function transcribe_alg_least_square(
+    model::Optimizer,
+    i::Integer,
+    phase::PHS,
+    mesh::AbstractIntervalsMesh{PM,MM,BM},
+) where {PM,MM<:IntResidualMesh,BM}
+
+    alg_cons = model.alg_cons[phase]
+
+    return MOI.ScalarNonlinearFunction(
+        :+,
+        [
+            transcribe_alg_least_square(
+                model, alg_fun, i, phase, mesh
+            ) for (alg_fun, _) in values(alg_cons)
         ]
     )
 end
@@ -455,18 +494,6 @@ function transcribe_dyn_least_square(
         [
             transcribe_dif_least_square(model, phase, mesh),
             transcribe_alg_least_square(model, phase, mesh),
-        ]
-    )
-end
-
-function transcribe_dyn_least_square(
-    model::Optimizer,
-    meshes::MESHES,
-)
-    return MOI.ScalarNonlinearFunction(
-        :+,
-        [
-            transcribe_dyn_least_square(model, phase, mesh) for (phase, mesh) in meshes if mesh.method_mesh isa IntResidualMesh
         ]
     )
 end

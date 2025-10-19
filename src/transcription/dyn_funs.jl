@@ -228,6 +228,16 @@ function transcribe_dyn_fun(
             ),
         ]),
     ])
+
+    # return MOI.ScalarNonlinearFunction(:-, Any[
+    #     MOI.ScalarNonlinearFunction(:/, Any[
+    #         sum(differentiation[q,k] * vars[i][k] for k in 1:n_p_dif),
+    #         time_var,
+    #     ]),
+    #     transcribe_dyn_fun(
+    #         dif_fun.dyn_fun, i, q, phase_vars, time_var, dyn_var_vars, dif_dyn_vars, mesh,
+    #     ),
+    # ])
 end
 
 function transcribe_dyn_fun(
@@ -274,4 +284,13 @@ function transcribe_dyn_fun(
         ]),
     ])
 
+    # return MOI.ScalarNonlinearFunction(:-, Any[
+    #     MOI.ScalarNonlinearFunction(:/, Any[
+    #         sum(2.0 * differentiation[q,k] * vars[i][k] for k in 1:n_p_dif),
+    #         MOI.ScalarNonlinearFunction(:*, Any[time_var, Δt]),
+    #     ]),
+    #     transcribe_dyn_fun(
+    #         dif_fun.dyn_fun, i, q, phase_vars, time_var, dyn_var_vars, dif_dyn_vars, mesh,
+    #     ),
+    # ])
 end

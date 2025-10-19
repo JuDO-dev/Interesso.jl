@@ -249,6 +249,7 @@ function transcribe_bounds!(
     return nothing
 end
 
+# Collocation, dynamic equations
 function transcribe_dif_cons!(
     model::Optimizer,
     phase::PHS,
@@ -268,6 +269,10 @@ function transcribe_dif_cons!(
                     transcribe_dyn_fun(dif_fun, i, j, model.phase_vars, model.time_vars[phase],
                         model.dyn_var_vars, model.dif_dyn_vars, mesh
                     ),
+                    # MOI.ScalarNonlinearFunction(:^,
+                    # [transcribe_dyn_fun(dif_fun, i, j, model.phase_vars, model.time_vars[phase],
+                    #     model.dyn_var_vars, model.dif_dyn_vars, mesh),
+                    # 2.0,]),
                     set,
                 )
             end
@@ -276,6 +281,7 @@ function transcribe_dif_cons!(
     return nothing
 end    
 
+# Collocation, algebraic equations
 function transcribe_alg_cons!(
     model::Optimizer,
     phase::PHS,
@@ -295,6 +301,10 @@ function transcribe_alg_cons!(
                     transcribe_dyn_fun(alg_fun, i, q, model.phase_vars, model.time_vars[phase],
                         model.dyn_var_vars, model.dif_dyn_vars, mesh
                     ), 
+                    # MOI.ScalarNonlinearFunction(:^,
+                    # [transcribe_dyn_fun(alg_fun, i, q, model.phase_vars, model.time_vars[phase],
+                    #     model.dyn_var_vars, model.dif_dyn_vars, mesh),
+                    # 2.0,]),
                     set,
                 )
             end
@@ -303,6 +313,7 @@ function transcribe_alg_cons!(
     return nothing
 end
 
+# Integrated Residual, transcription of differentiation of residuals
 function transcribe_dif_cons!(
     model::Optimizer,
     phase::PHS,
@@ -316,7 +327,8 @@ function transcribe_dif_cons!(
             MOI.add_constraint(
                 model.inner,
                 f,
-                MOI.Interval(-1e-4, 1e-4),
+                # MOI.Interval(-1e-4, 1e-4),
+                MOI.EqualTo(0.0)
             )
             push!(model.dif_res_funcs, f)
         end
@@ -324,6 +336,7 @@ function transcribe_dif_cons!(
     return nothing
 end
 
+# Integrated Residual, transcription of residuals
 function transcribe_alg_cons!(
     model::Optimizer,
     phase::PHS,
@@ -331,36 +344,146 @@ function transcribe_alg_cons!(
 ) where {PM,MM<:IntResidualMesh,BM}
 
     n_h = get_intervals_length(mesh)
-    for i = 1:n_h
-        f = transcribe_dyn_least_square(model, i, phase, mesh)
-        MOI.add_constraint(
-            model.inner,
-            f,
-            MOI.LessThan(1e-2),
-        )
-        push!(model.res_funcs, f)
-    end
+    ϵ = 1e-4
+
+    # =================== formulation 1, sum all intervals and dyn/alg constraints ===================
+    # scale = n_h * (length(model.dif_cons[phase]) + length(model.alg_cons[phase]))
+    # ϵ *= scale
+    # f = transcribe_dyn_least_square(model, phase, mesh)
+    # MOI.add_constraint(
+    #     model.inner,
+    #     f,
+    #     MOI.LessThan(ϵ),
+    # )
+    # push!(model.res_funcs, f)
+
+    # =================== formulation 2, sum all dyn/alg constraints ===================
+    # scale = length(model.dif_cons[phase]) + length(model.alg_cons[phase])
+    # ϵ *= scale
+    # for i = 1:n_h
+    #     f = transcribe_dyn_least_square(model, i, phase, mesh)
+    #     MOI.add_constraint(
+    #         model.inner,
+    #         f,
+    #         MOI.LessThan(ϵ),
+    #     )
+    #     push!(model.res_funcs, f)
+    # end
+
+    # =================== formulation 3, all independent without lifting ===================
+    # for i = 1:n_h
+    #     for (dif_fun, _) in values(model.dif_cons[phase])
+    #         dif_con = transcribe_dif_least_square(model, dif_fun, i, phase, mesh)
+    #         push!(model.res_funcs, dif_con)
+    #         MOI.add_constraint(
+    #             model.inner,
+    #             dif_con,
+    #             MOI.LessThan(ϵ),
+    #         )
+    #     end
+    #     for (alg_fun, _) in values(model.alg_cons[phase])
+    #         alg_con = transcribe_alg_least_square(model, alg_fun, i, phase, mesh)
+    #         push!(model.res_funcs, alg_con)
+    #         MOI.add_constraint(
+    #             model.inner,
+    #             alg_con,
+    #             MOI.LessThan(ϵ),
+    #         )
+    #     end
+    # end
+
+    # =================== formulation 4, all independent with lifting ===================
+    """
+    r = (dx - f(x))^2
+    r - s^2 == 0
+    0 ≤ s ≤ √ϵ
+    """
+    # ϵ = sqrt(ϵ)  # [0, sqrt(ϵ)], if s^2
+    # for i = 1:n_h
+    #     for (dif_fun, _) in values(model.dif_cons[phase])
+    #         s = MOI.add_variable(model.inner)
+    #         MOI.add_constraint(
+    #             model.inner,
+    #             s,
+    #             MOI.Interval(0.0, ϵ)
+    #         )
+    #         dif_con = MOI.ScalarNonlinearFunction(
+    #             :-,
+    #             [
+    #                 transcribe_dif_least_square(model, dif_fun, i, phase, mesh),
+    #                 # s,
+    #                 MOI.ScalarNonlinearFunction(:^, [s, 2.0]),
+    #             ]
+    #         )
+    #         push!(model.res_funcs, dif_con)
+    #         MOI.add_constraint(
+    #             model.inner,
+    #             dif_con,
+    #             MOI.EqualTo(0.0),
+    #         )
+    #     end
+    #     for (alg_fun, _) in values(model.alg_cons[phase])
+    #         s = MOI.add_variable(model.inner)
+    #         MOI.add_constraint(
+    #             model.inner,
+    #             s,
+    #             MOI.Interval(0.0, ϵ)
+    #         )
+    #         alg_con = MOI.ScalarNonlinearFunction(
+    #             :-,
+    #             [
+    #                 transcribe_alg_least_square(model, alg_fun, i, phase, mesh),
+    #                 # s,
+    #                 MOI.ScalarNonlinearFunction(:^, [s, 2.0]),
+    #             ]
+    #         )
+    #         push!(model.res_funcs, alg_con)
+    #         MOI.add_constraint(
+    #             model.inner,
+    #             alg_con,
+    #             MOI.EqualTo(0.0),
+    #         )
+    #     end
+    # end
+
     return nothing
 end
 
-function transcribe_initials!(model::Optimizer, phase::PHS, mesh::AbstractIntervalsMesh)
+# Boundary constraints
+function transcribe_initials!(model::Optimizer, meshes::MESHES)
 
+    phase = model.phases[1]
+    
     for (dyn_var, set) in model.dyn_var_initials[phase]
         MOI.add_constraint(
             model.inner,
-            transcribe_dyn_var_initial(dyn_var, model.dyn_var_vars, mesh),
+            transcribe_dyn_var_initial(dyn_var, model.dyn_var_vars, meshes[phase]),
             set,
         )
     end
     return nothing
 end
 
-function transcribe_finals!(model::Optimizer, phase::PHS, mesh::AbstractIntervalsMesh)
+function transcribe_finals!(model::Optimizer, meshes::MESHES)
+
+    phase = model.phases[end]
 
     for (dyn_var, set) in model.dyn_var_finals[phase]
         MOI.add_constraint(
             model.inner,
-            transcribe_dyn_var_final(dyn_var, model.dyn_var_vars, mesh),
+            transcribe_dyn_var_final(dyn_var, model.dyn_var_vars, meshes[phase]),
+            set,
+        )
+    end
+    return nothing
+end
+
+function transcribe_bou_cons!(model::Optimizer, meshes::MESHES)
+
+    for (_, (fun, set)) in model.bou_cons
+        MOI.add_constraint(
+            model.inner,
+            transcribe_bou_fun(fun, model, meshes),
             set,
         )
     end
