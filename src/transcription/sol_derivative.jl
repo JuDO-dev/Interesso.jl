@@ -1,4 +1,50 @@
 function transcribe_sol_derivative!(
+    model::Optimizer,
+    ::Float64,
+    phase::PHS,
+    derivative::DOI.Derivative{DYN_VAR},
+)
+    transcribe_sol_derivative!(
+        model.sol_derivatives[phase],
+        model.inner,
+        0.0,
+        1.0,
+        model.dyn_var_vars,
+        derivative,
+        model.meshes[phase],
+    )
+    return nothing
+end
+
+function transcribe_sol_derivative!(
+    model::Optimizer,
+    ::VAR,
+    phase::PHS,
+    derivative::DOI.Derivative{DYN_VAR},
+)
+    phase_initials = OrderedDict{PHS,Float64}()
+    Δt = OrderedDict{PHS,Float64}()
+    t = model.phase_initials[first(model.phases)]
+
+    for p in model.phases
+        phase_initials[p] = t
+        Δt[p] = MOI.get(model.inner, MOI.VariablePrimal(), model.time_vars[p])
+        t += Δt[p]
+    end
+
+    transcribe_sol_derivative!(
+        model.sol_derivatives[phase],
+        model.inner,
+        phase_initials[phase],
+        Δt[phase],
+        model.dyn_var_vars,
+        derivative,
+        model.meshes[phase],
+    )
+    return nothing
+end
+
+function transcribe_sol_derivative!(
     sol_derivatives::SOLS{DOI.Derivative{DYN_VAR}},
     solver::MOI.ModelLike,
     t_0::Float64,

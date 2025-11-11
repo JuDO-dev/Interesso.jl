@@ -46,7 +46,6 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
     phase_vars::PHS_VARS
     time_vars::TIME_VARS
     dyn_var_vars::DYN_VAR_VARS
-    penalty_funs::OrderedDict{PHS,MOI.ScalarNonlinearFunction}
 
     # Solution
     sol_dyn_vars::OrderedDict{PHS,SOLS{DYN_VAR}}
@@ -112,7 +111,6 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
             PHS_VARS(),
             TIME_VARS(),
             DYN_VAR_VARS(),
-            OrderedDict{PHS,MOI.ScalarNonlinearFunction}(),
             OrderedDict{PHS,SOLS{DYN_VAR}}(),
             OrderedDict{PHS,SOLS{DOI.Derivative{DYN_VAR}}}(),
             Vector{MOI.AbstractFunction}(),
@@ -154,7 +152,6 @@ function MOI.empty!(model::Optimizer)
     empty!(model.phase_vars)
     empty!(model.time_vars)
     empty!(model.dyn_var_vars)
-    empty!(model.penalty_funs)
     empty!(model.sol_dyn_vars)
     empty!(model.sol_derivatives)
     empty!(model.dif_res_funcs)
@@ -182,7 +179,7 @@ function MOI.is_empty(model::Optimizer)
         isempty(model.phase_method)       && isempty(model.phase_bounds)       &&
         isempty(model.meshes)             && MOI.is_empty(model.inner)         && 
         isempty(model.phase_vars)         && isempty(model.time_vars)          &&
-        isempty(model.dyn_var_vars)       && isempty(model.penalty_funs)       &&
+        isempty(model.dyn_var_vars)       &&
         isempty(model.sol_dyn_vars)       && isempty(model.sol_derivatives)
 end
 
@@ -258,5 +255,9 @@ function MOI.optimize!(model::Optimizer)
             get(model.phase_points, phase, model.default_points),
         )
     end
+
+    ## Save Solutions
+    save_solutions!(model)
+
     return nothing
 end

@@ -52,14 +52,15 @@ function cart_pole(
     MOI.add_constraint(model, DOI.Final(ω), MOI.EqualTo(0.0))
 
     # Starts
-    MOI.set(model, DOI.DynamicVariableStart(), r, LinearInterpolant(0.0, 1.0))
-    MOI.set(model, DOI.DynamicVariableStart(), θ, LinearInterpolant(0.0, 1.0 * pi))
-    MOI.set(model, DOI.DynamicVariableStart(), u, LinearInterpolant(0.0, 0.0))
-    MOI.set(model, DOI.DynamicVariableStart(), v, LinearInterpolant(0.0, 0.0))
-    MOI.set(model, DOI.DynamicVariableStart(), ω, LinearInterpolant(0.0, 0.0))
-
-    # override defaults for variables present in `starts`
-    Interesso.warmstart!(model, starts)
+    if starts == Dict{String,DOI.AbstractDynamicSolution}()
+        MOI.set(model, DOI.DynamicVariableStart(), r, LinearInterpolant(0.0, 1.0))
+        MOI.set(model, DOI.DynamicVariableStart(), θ, LinearInterpolant(0.0, 1.0 * pi))
+        MOI.set(model, DOI.DynamicVariableStart(), u, LinearInterpolant(0.0, 0.0))
+        MOI.set(model, DOI.DynamicVariableStart(), v, LinearInterpolant(0.0, 0.0))
+        MOI.set(model, DOI.DynamicVariableStart(), ω, LinearInterpolant(0.0, 0.0))
+    else
+        Interesso.warmstart!(model, starts)
+    end
 
     ## Differential Equations
     sinθ = NDF(:sin, [θ], t)
@@ -134,5 +135,5 @@ function cart_pole(
     r_sol = MOI.get(model, DOI.DynamicVariableSolution(), r)
     v_sol = MOI.get(model, DOI.DynamicVariableSolution(), v)
 
-    return u_sol, r_sol, v_sol
+    return u_sol, r_sol, v_sol, model
 end

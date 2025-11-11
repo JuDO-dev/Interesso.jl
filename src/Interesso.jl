@@ -12,7 +12,6 @@ include("points.jl")
 include("methods.jl")
 include("bounds.jl")
 include("intervals.jl")
-include("post_analyze.jl")
 
 include("DOI/aliases.jl")
 include("DOI/optimizer.jl")
@@ -27,11 +26,16 @@ include("transcription/ingredients.jl")
 include("transcription/sol_dyn_var.jl")
 include("transcription/sol_derivative.jl")
 
+include("post_solve/post_analyze.jl")
+include("post_solve/perturb.jl")
+
 export AbstractInterpolant, PiecewiseInterpolant, LagrangeInterpolant
 export AbstractPoints, AbstractPointsMesh, LGRPoints
-export AbstractMethod, AbstractMethodMesh, Collocation, IntResidual
+export AbstractMethod, AbstractMethodMesh, AbstractIntRes, AbstractIntResMesh, Collocation, DAIR, QPM, ASIR
 export AbstractBounds, AbstractBoundsMesh, ExactBounds, SampledBounds, BernsteinBounds
 export AbstractIntervals, AbstractIntervalsMesh, FixedIntervals, FlexibleIntervals
-export eval_funcs, get_solutions, warmstart!
+export get_solutions, warmstart!
+export eval_funcs, eval_accuracy
+export perturb_solution, perturb_solutions
 
 end

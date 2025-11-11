@@ -70,16 +70,15 @@ function transcribe_dyn_fun(
     if i == 1
         t_a = mesh.fixed.points_meshes[1].t_a
         t_b = flex_vars[1]
-
     elseif i == n_h
         t_a = flex_vars[end]
         t_b = mesh.fixed.points_meshes[end].t_b
     else
-        t_a = flex_vars[i]
-        t_b = flex_vars[i + 1]
+        t_a = flex_vars[i - 1]
+        t_b = flex_vars[i]
     end
 
-    return 0.5 * (t_a + t_b) + 0.5 * (t_b - t_a) * mesh.method_mesh.quad_points_mesh.points_alg[q]
+    return (0.5 * t_a + 0.5 * t_b) + (0.5 * t_b - 0.5 * t_a) * mesh.method_mesh.quad_points_mesh.points_alg[q]
 end
 
 # Dynamic Variable
@@ -172,12 +171,12 @@ function transcribe_dyn_fun(
     t_0 = mesh.fixed.points_meshes[1].t_a
     t_f = mesh.fixed.points_meshes[end].t_b
 
-    Δt = if i == 1
-        1.0 * flex_vars[1] - t_0
+    if i == 1
+        Δt = 1.0 * flex_vars[1] - t_0
     elseif i == n_h
-        t_f - 1.0 * flex_vars[end]
+        Δt = t_f - 1.0 * flex_vars[end]
     else
-        1.0 * flex_vars[i] - 1.0 * flex_vars[i - 1]
+        Δt = 1.0 * flex_vars[i] - 1.0 * flex_vars[i - 1]
     end
 
     denom = MOI.ScalarNonlinearFunction(:*, Any[time_var, Δt])

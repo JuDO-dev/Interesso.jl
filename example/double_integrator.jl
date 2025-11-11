@@ -66,5 +66,5 @@ function double_integrator(model::Interesso.Optimizer)
     x_sol = MOI.get(model, DOI.DynamicVariableSolution(), x)
     v_sol = MOI.get(model, DOI.DynamicVariableSolution(), v)
 
-    return u_sol, x_sol, v_sol
+    return u_sol, x_sol, v_sol, model
 end

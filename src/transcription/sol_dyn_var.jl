@@ -1,4 +1,9 @@
-function transcribe_sol_dyn_var!(model::Optimizer, ::Float64, phase::PHS, dyn_var::DYN_VAR)
+function transcribe_sol_dyn_var!(
+    model::Optimizer,
+    ::Float64,
+    phase::PHS,
+    dyn_var::DYN_VAR
+)
     transcribe_sol_dyn_var!(
         model.sol_dyn_vars[phase],
         model.inner,
@@ -12,7 +17,12 @@ function transcribe_sol_dyn_var!(model::Optimizer, ::Float64, phase::PHS, dyn_va
     return nothing
 end
 
-function transcribe_sol_dyn_var!(model::Optimizer, ::VAR, phase::PHS, dyn_var::DYN_VAR)
+function transcribe_sol_dyn_var!(
+    model::Optimizer,
+    ::VAR,
+    phase::PHS,
+    dyn_var::DYN_VAR
+)
     phase_initials = OrderedDict{PHS,Float64}()
     Δt = OrderedDict{PHS,Float64}()
     t = model.phase_initials[first(model.phases)]

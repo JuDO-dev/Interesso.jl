@@ -54,6 +54,28 @@ function MOI.get(model::Optimizer, ::DOI.DynamicVariableSolution, dyn_var::DYN_V
     return model.sol_dyn_vars[phase][dyn_var]
 end
 
+function save_solutions!(model::Optimizer)
+
+    for phase in model.phases
+        
+        time_var = model.time_vars[phase]
+
+        for dyn_var in model.dyn_vars[phase]
+            transcribe_sol_dyn_var!(model, time_var, phase, dyn_var)
+            if dyn_var in model.dif_dyn_vars
+                transcribe_sol_derivative!(
+                    model,
+                    time_var,
+                    phase,
+                    DOI.Derivative(dyn_var),
+                )
+            end
+        end
+    end
+
+    return nothing
+end
+
 function get_solutions(model::Optimizer)
     warm_start = Dict{String, DOI.AbstractDynamicSolution}()
 

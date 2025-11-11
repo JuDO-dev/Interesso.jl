@@ -40,6 +40,14 @@ struct PM_MM_Interpolation <: AbstractInterpolant
     end
 end
 
+function _identity_matrix(n::Integer)
+    I = zeros(Float64, n, n)
+    @inbounds for i in 1:n
+        I[i, i] = 1.0
+    end
+    return I
+end
+
 # Collocation
 
 struct Collocation <: AbstractMethod end
@@ -62,11 +70,26 @@ build_method_mesh(::Collocation, mesh::AbstractPointsMesh) = CollocationMesh(mes
 
 # Integrated Residual
 
-struct IntResidual{T<:AbstractPoints} <: AbstractMethod
+abstract type AbstractIntRes <: AbstractMethod end
+
+struct DAIR{T<:AbstractPoints} <: AbstractIntRes
     quad_points::T
 end
 
-IntResidual(number::Integer) = IntResidual(GLPoints(number))
+DAIR(number::Integer) = DAIR(GLPoints(number))
+
+struct QPM{T<:AbstractPoints} <: AbstractIntRes
+    quad_points::T
+end
+
+QPM(number::Integer) = QPM(GLPoints(number))
+
+struct ASIR{T<:AbstractPoints} <: AbstractIntRes
+    quad_points::T
+end
+
+ASIR(number::Integer) = ASIR(GLPoints(number))
+
 
 """
     quad_var_vars[dyn_var][i] should be Vector{MathOptInterface.ScalarAffineFunction{Float64}}
@@ -75,27 +98,58 @@ IntResidual(number::Integer) = IntResidual(GLPoints(number))
     dyn_var_vars::DYN_VAR_VARS
 """
 
-struct IntResidualMesh{P<:AbstractPointsMesh, I<:AbstractInterpolant} <: AbstractMethodMesh
+abstract type AbstractIntResMesh <: AbstractMethodMesh end
+
+# DAIR
+struct DAIRMesh{P<:AbstractPointsMesh, I<:AbstractInterpolant} <: AbstractIntResMesh
     quad_points_mesh::P
     interpolant::I
 end
 
-function IntResidualMesh(points::IntResidual, mesh::AbstractPointsMesh) 
+function DAIRMesh(points::DAIR, mesh::AbstractPointsMesh)
 
     quad_mesh = GLPointsMesh(points.quad_points, mesh.t_a, mesh.t_b)
     interpolant = PM_MM_Interpolation(mesh, quad_mesh)
-    
-    return IntResidualMesh(quad_mesh, interpolant)
+
+    return DAIRMesh(quad_mesh, interpolant)
 end
 
-mesh_type(::Type{IntResidual}) = IntResidualMesh
+mesh_type(::Type{DAIR}) = DAIRMesh
 
-build_method_mesh(points::IntResidual, mesh::AbstractPointsMesh) = IntResidualMesh(points, mesh)
+build_method_mesh(points::DAIR, mesh::AbstractPointsMesh) = DAIRMesh(points, mesh)
 
-function _identity_matrix(n::Integer)
-    I = zeros(Float64, n, n)
-    @inbounds for i in 1:n
-        I[i, i] = 1.0
-    end
-    return I
+# QPM
+struct QPMMesh{P<:AbstractPointsMesh, I<:AbstractInterpolant} <: AbstractIntResMesh
+    quad_points_mesh::P
+    interpolant::I
 end
+
+function QPMMesh(points::QPM, mesh::AbstractPointsMesh)
+
+    quad_mesh = GLPointsMesh(points.quad_points, mesh.t_a, mesh.t_b)
+    interpolant = PM_MM_Interpolation(mesh, quad_mesh)
+
+    return QPMMesh(quad_mesh, interpolant)
+end
+
+mesh_type(::Type{QPM}) = QPMMesh
+
+build_method_mesh(points::QPM, mesh::AbstractPointsMesh) = QPMMesh(points, mesh)
+
+# ASIR
+struct ASIRMesh{P<:AbstractPointsMesh, I<:AbstractInterpolant} <: AbstractIntResMesh
+    quad_points_mesh::P
+    interpolant::I
+end
+
+function ASIRMesh(points::ASIR, mesh::AbstractPointsMesh)
+
+    quad_mesh = GLPointsMesh(points.quad_points, mesh.t_a, mesh.t_b)
+    interpolant = PM_MM_Interpolation(mesh, quad_mesh)
+
+    return ASIRMesh(quad_mesh, interpolant)
+end
+
+mesh_type(::Type{ASIR}) = ASIRMesh
+
+build_method_mesh(points::ASIR, mesh::AbstractPointsMesh) = ASIRMesh(points, mesh)

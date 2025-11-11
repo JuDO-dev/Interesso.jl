@@ -114,7 +114,6 @@ mesh_type(::Type{LGRPoints}) = LGRPointsMesh
 
 build_points_mesh(points::LGRPoints, t_a::Real, t_b::Real) = LGRPointsMesh(points, t_a, t_b)
 
-
 ## Gauss-Legendre
 
 struct GLPoints <: AbstractPoints

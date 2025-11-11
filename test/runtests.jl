@@ -8,7 +8,7 @@ include(joinpath(@__DIR__, "..", "example", "cart_pole.jl"))
 @testset "Interesso.jl" begin
 
     optimizer = SLOW.Optimizer()
-    MOI.set(optimizer, MOI.RawOptimizerAttribute("λ0"), nothing)
+    MOI.set(optimizer, MOI.RawOptimizerAttribute("dual"), true)
     MOI.set(optimizer, MOI.RawOptimizerAttribute("ρ0"), 10.0)
     MOI.set(optimizer, MOI.RawOptimizerAttribute("h_norm"), 1)
     MOI.set(optimizer, MOI.RawOptimizerAttribute("max_iter"), 1000)
@@ -18,7 +18,7 @@ include(joinpath(@__DIR__, "..", "example", "cart_pole.jl"))
         inner=optimizer,
         default_intervals=FlexibleIntervals(20, 0.0),
         default_points=LGRPoints(3, 2),
-        default_method=IntResidual(5),
+        default_method=DAIR(5),
         default_bounds=SampledBounds(10)
     )
     ~, ~, ~, model = cart_pole(model)
