@@ -1,4 +1,7 @@
-function bang_bang(model::Interesso.Optimizer)
+function bang_bang(
+    model::Interesso.Optimizer;
+    starts=nothing
+) 
 
     @assert MOI.is_empty(model)
 
@@ -22,6 +25,9 @@ function bang_bang(model::Interesso.Optimizer)
     MOI.add_constraint(model, DOI.Final(v), MOI.EqualTo(0.0))
 
     # Starts
+    if !isnothing(starts)
+        Interesso.warmstart!(model, starts)
+    end
 
     ## Differential Equations
 
@@ -45,7 +51,7 @@ function bang_bang(model::Interesso.Optimizer)
 
     ## Objective Function
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
-    obj_fun = DOI.MultiPhaseIntegral([NDF(:+, [1.0], t)])
+    obj_fun = DOI.MultiPhaseIntegral([NDF(:+, [10.0], t)])
     MOI.set(model, MOI.ObjectiveFunction{typeof(obj_fun)}(), obj_fun)
 
     MOI.optimize!(model)
@@ -55,5 +61,5 @@ function bang_bang(model::Interesso.Optimizer)
     x_sol = MOI.get(model, DOI.DynamicVariableSolution(), x)
     v_sol = MOI.get(model, DOI.DynamicVariableSolution(), v)
 
-    return u_sol, x_sol, v_sol
+    return u_sol, x_sol, v_sol, model
 end

@@ -312,37 +312,36 @@ function transcribe_dif_cons!(
     ::Optimizer,
     ::PHS,
     ::AbstractIntervalsMesh{PM,MM,BM},
-) where {PM,MM<:DAIRMesh,BM}
+) where {PM,MM<:Union{DAIRMesh,QPMMesh},BM}
     return nothing
 end
 
-function transcribe_dif_cons!(
-    ::Optimizer,
-    ::PHS,
-    ::AbstractIntervalsMesh{PM,MM,BM},
-) where {PM,MM<:QPMMesh,BM}
-    return nothing
-end
+# function transcribe_dif_cons!(
+#     ::Optimizer,
+#     ::PHS,
+#     ::AbstractIntervalsMesh{PM,MM,BM},
+# ) where {PM,MM<:QPMMesh,BM}
+#     return nothing
+# end
 
 function transcribe_dif_cons!(
     model::Optimizer,
     phase::PHS,
     mesh::AbstractIntervalsMesh{PM,MM,BM},
-) where {PM,MM<:ASIRMesh,BM}
+) where {PM,MM<:SAIRMesh,BM}
 
-    n_h = get_intervals_length(mesh)
-    for i = 1:n_h
-        grad_res_funcs = transcribe_grad_dyn_least_square(model, i, phase, mesh)
-        for f in grad_res_funcs
-            MOI.add_constraint(
-                model.inner,
-                f,
-                # MOI.Interval(-1e-4, 1e-4),
-                MOI.EqualTo(0.0)
-            )
-            push!(model.dif_res_funcs, f)
-        end
+    grad_res_funcs = transcribe_grad_dyn_least_square(model, phase, mesh)
+
+    for f in grad_res_funcs
+        MOI.add_constraint(
+            model.inner,
+            f,
+            # MOI.Interval(-1e-4, 1e-4),
+            MOI.EqualTo(0.0)
+        )
+        push!(model.dif_res_funcs, f)
     end
+
     return nothing
 end
 
@@ -351,10 +350,10 @@ function transcribe_alg_cons!(
     model::Optimizer,
     phase::PHS,
     mesh::AbstractIntervalsMesh{PM,MM,BM},
-) where {PM,MM<:Union{DAIRMesh,ASIRMesh},BM}
+) where {PM,MM<:Union{DAIRMesh,SAIRMesh},BM}
 
     n_h = get_intervals_length(mesh)
-    ϵ = 1e-6
+    ϵ = 1e-4
 
     # =================== formulation 1, sum all intervals and dyn/alg constraints ===================
     # scale = n_h * (length(model.dif_cons[phase]) + length(model.alg_cons[phase]))

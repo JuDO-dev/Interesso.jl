@@ -30,8 +30,8 @@ include("post_solve/post_analyze.jl")
 include("post_solve/perturb.jl")
 
 export AbstractInterpolant, PiecewiseInterpolant, LagrangeInterpolant
-export AbstractPoints, AbstractPointsMesh, LGRPoints
-export AbstractMethod, AbstractMethodMesh, AbstractIntRes, AbstractIntResMesh, Collocation, DAIR, QPM, ASIR
+export AbstractPoints, AbstractPointsMesh, LGRPoints, LGLPoints
+export AbstractMethod, AbstractMethodMesh, AbstractIntRes, AbstractIntResMesh, Collocation, DAIR, QPM, SAIR
 export AbstractBounds, AbstractBoundsMesh, ExactBounds, SampledBounds, BernsteinBounds
 export AbstractIntervals, AbstractIntervalsMesh, FixedIntervals, FlexibleIntervals
 export get_solutions, warmstart!

@@ -2,7 +2,7 @@ import MathOptInterface as MOI
 import DynOptInterface as DOI
 using Interesso
 using Plots
-using SLOW
+using SLOW, Uno
 
 
 const NDF = DOI.NonlinearDynamicFunction
@@ -18,21 +18,22 @@ include(joinpath(@__DIR__, "..", "example", "cart_pole.jl"))
 include(joinpath(@__DIR__, "..", "example", "cart_pole_implicit.jl"))
 
 optimizer = SLOW.Optimizer()
-MOI.set(optimizer, MOI.RawOptimizerAttribute("dual"), true)
+MOI.set(optimizer, MOI.RawOptimizerAttribute("dual"), false)
 MOI.set(optimizer, MOI.RawOptimizerAttribute("ρ0"), 10.0)
 MOI.set(optimizer, MOI.RawOptimizerAttribute("h_norm"), 1)
-MOI.set(optimizer, MOI.RawOptimizerAttribute("max_iter"), 1000)
+MOI.set(optimizer, MOI.RawOptimizerAttribute("max_iter"), 0)
 # MOI.set(optimizer, MOI.RawOptimizerAttribute("max_time"), 60.0)
-MOI.set(optimizer, MOI.RawOptimizerAttribute("logging"), 0)
+MOI.set(optimizer, MOI.RawOptimizerAttribute("logging"), 2)
 
 
 model = Interesso.Optimizer(
     inner=optimizer,
+    # inner = Uno.Optimizer(preset="filtersqp"),
     # default_intervals=FlexibleIntervals(20, 0.0),
     default_intervals=FixedIntervals(30),
     default_points=LGRPoints(3),
     # default_method=Collocation(),
-    default_method=DAIR(5),
+    default_method=SAIR(5),
     # default_bounds=SampledBounds(5)
 )
 

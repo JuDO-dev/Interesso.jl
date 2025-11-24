@@ -82,7 +82,7 @@ function transcribe_dyn_var_initial(
     dyn_var::DYN_VAR,
     dyn_var_vars::DYN_VAR_VARS,
     ::AbstractIntervalsMesh{PM,MM,BM},
-) where {PM<:LGRPointsMesh,MM,BM}
+) where {PM<:AbstractPointsMesh,MM,BM}
 
     return 1.0 * dyn_var_vars[dyn_var][1][1]
 end
@@ -103,7 +103,7 @@ function transcribe_dyn_var_final(
     dyn_var::DYN_VAR,
     dyn_var_vars::DYN_VAR_VARS,
     ::AbstractIntervalsMesh{PM,MM,BM},
-) where {PM<:LGRPointsMesh,MM,BM}
+) where {PM<:AbstractPointsMesh,MM,BM}
 
     return 1.0 * dyn_var_vars[dyn_var][end][end]
 end
@@ -474,12 +474,21 @@ function transcribe_dyn_least_square(
     mesh::AbstractIntervalsMesh{PM,MM,BM},
 ) where {PM,MM<:AbstractIntResMesh,BM}
 
+    n_func = length(model.dif_cons[phase]) + length(model.alg_cons[phase])
+    Δt = get_time_length(model.phase_vars, i, phase, mesh)
+
     return MOI.ScalarNonlinearFunction(
-        :+,
-        [
-            transcribe_dif_least_square(model, i, phase, mesh),
-            transcribe_alg_least_square(model, i, phase, mesh),
-        ]
+        # :*,
+        # [
+        #     1.0 / (n_func * Δt),
+        #     MOI.ScalarNonlinearFunction(
+                :+,
+                [
+                    transcribe_dif_least_square(model, i, phase, mesh),
+                    transcribe_alg_least_square(model, i, phase, mesh),
+                ]
+        #     )
+        # ]
     )
 end
 
@@ -510,7 +519,7 @@ function transcribe_dyn_least_square(
     )
 end
 
-function transcribe_grad_dyn_least_square(
+function transcribe_grad_dif_dyn(
     model::Optimizer,
     i::Integer,
     phase::PHS,
@@ -531,12 +540,36 @@ function transcribe_grad_dyn_least_square(
 """
 
     grad_res_funcs = Vector{MOI.AbstractFunction}()
-    interval_vars = _get_interval_dyn_vars(model, i, phase)
+    vars = _get_interval_dyn_vars(model, i, phase)
     dyn_res = transcribe_dyn_least_square(model, i, phase, mesh)
 
-    for dyn_var in interval_vars   
+    for dyn_var in vars   
         func = MOI.Nonlinear.SymbolicAD.derivative(dyn_res, dyn_var)
         push!(grad_res_funcs, func)
+    end
+
+    return grad_res_funcs
+end
+
+function transcribe_grad_dyn_least_square(
+    model::Optimizer,
+    phase::PHS,
+    mesh::AbstractIntervalsMesh{PM,MM,BM},
+) where {PM,MM<:AbstractIntResMesh,BM}
+
+    n_h = get_intervals_length(mesh)
+    grad_res_funcs = Vector{MOI.AbstractFunction}()
+
+    for i = 1:n_h
+        funcs_dif = transcribe_grad_dif_dyn(model, i, phase, mesh)
+        append!(grad_res_funcs, funcs_dif)
+    end
+
+    if model.time_vars[phase] isa VAR
+        dyn_res = transcribe_dyn_least_square(model, phase, mesh)
+        var = model.time_vars[phase]
+        func_t = MOI.Nonlinear.SymbolicAD.derivative(dyn_res, var)
+        push!(grad_res_funcs, func_t)
     end
 
     return grad_res_funcs
@@ -549,12 +582,14 @@ function _get_interval_dyn_vars(
 )
 
     interval_vars = VAR[]
-    for dyn_var in model.dif_dyn_vars
-        append!(interval_vars, model.dyn_var_vars[dyn_var][i])
+    for dyn_var in model.dyn_vars[phase]
+        if dyn_var in model.dif_dyn_vars
+            append!(interval_vars, model.dyn_var_vars[dyn_var][i])
+            filter!(var -> (var != model.dyn_var_vars[dyn_var][i][1]), interval_vars)  # remove the one for continuity
+        end
     end
-    if model.time_vars[phase] isa VAR
-        push!(interval_vars, model.time_vars[phase])
-    end
+
+    unique!(interval_vars)
 
     return unique!(interval_vars)
 end

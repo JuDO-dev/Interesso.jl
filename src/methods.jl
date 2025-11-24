@@ -80,15 +80,16 @@ DAIR(number::Integer) = DAIR(GLPoints(number))
 
 struct QPM{T<:AbstractPoints} <: AbstractIntRes
     quad_points::T
+    pen_param::Real
 end
 
-QPM(number::Integer) = QPM(GLPoints(number))
+QPM(number::Integer; pen_param::Real=1.0) = QPM(GLPoints(number), pen_param)
 
-struct ASIR{T<:AbstractPoints} <: AbstractIntRes
+struct SAIR{T<:AbstractPoints} <: AbstractIntRes
     quad_points::T
 end
 
-ASIR(number::Integer) = ASIR(GLPoints(number))
+SAIR(number::Integer) = SAIR(GLPoints(number))
 
 
 """
@@ -122,34 +123,38 @@ build_method_mesh(points::DAIR, mesh::AbstractPointsMesh) = DAIRMesh(points, mes
 struct QPMMesh{P<:AbstractPointsMesh, I<:AbstractInterpolant} <: AbstractIntResMesh
     quad_points_mesh::P
     interpolant::I
+    pen_param::Real
 end
+
+QPMMesh(quad_points_mesh::P, interpolant::I) where {P<:AbstractPointsMesh,I<:AbstractInterpolant} =
+    QPMMesh(quad_points_mesh, interpolant, 1.0)
 
 function QPMMesh(points::QPM, mesh::AbstractPointsMesh)
 
     quad_mesh = GLPointsMesh(points.quad_points, mesh.t_a, mesh.t_b)
     interpolant = PM_MM_Interpolation(mesh, quad_mesh)
 
-    return QPMMesh(quad_mesh, interpolant)
+    return QPMMesh(quad_mesh, interpolant, points.pen_param)
 end
 
 mesh_type(::Type{QPM}) = QPMMesh
 
 build_method_mesh(points::QPM, mesh::AbstractPointsMesh) = QPMMesh(points, mesh)
 
-# ASIR
-struct ASIRMesh{P<:AbstractPointsMesh, I<:AbstractInterpolant} <: AbstractIntResMesh
+# SAIR
+struct SAIRMesh{P<:AbstractPointsMesh, I<:AbstractInterpolant} <: AbstractIntResMesh
     quad_points_mesh::P
     interpolant::I
 end
 
-function ASIRMesh(points::ASIR, mesh::AbstractPointsMesh)
+function SAIRMesh(points::SAIR, mesh::AbstractPointsMesh)
 
     quad_mesh = GLPointsMesh(points.quad_points, mesh.t_a, mesh.t_b)
     interpolant = PM_MM_Interpolation(mesh, quad_mesh)
 
-    return ASIRMesh(quad_mesh, interpolant)
+    return SAIRMesh(quad_mesh, interpolant)
 end
 
-mesh_type(::Type{ASIR}) = ASIRMesh
+mesh_type(::Type{SAIR}) = SAIRMesh
 
-build_method_mesh(points::ASIR, mesh::AbstractPointsMesh) = ASIRMesh(points, mesh)
+build_method_mesh(points::SAIR, mesh::AbstractPointsMesh) = SAIRMesh(points, mesh)

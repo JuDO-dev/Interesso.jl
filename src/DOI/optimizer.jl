@@ -64,8 +64,14 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
     )
 
         if default_method isa Collocation
-            if !(length(default_points.points_dif_τ) == length(default_points.points_alg_τ) + 1)
-                throw(DomainError("Collocation method requires states and control to be of same order."))
+            if default_points isa LGRPoints
+                if !(length(default_points.points_dif_τ) == length(default_points.points_alg_τ) + 1)
+                    throw(DomainError("Collocation method requires states and control to be of same order."))
+                end
+            elseif default_points isa LGLPoints
+                if !(length(default_points.points_dif_τ) == length(default_points.points_alg_τ))
+                    throw(DomainError("Collocation method requires states and control to be of same order."))
+                end
             end
             if default_bounds isa SampledBounds
                 throw(DomainError("Collocation method does not support sampled bounds."))

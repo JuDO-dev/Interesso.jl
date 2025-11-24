@@ -227,16 +227,6 @@ function transcribe_dyn_fun(
             ),
         ]),
     ])
-
-    # return MOI.ScalarNonlinearFunction(:-, Any[
-    #     MOI.ScalarNonlinearFunction(:/, Any[
-    #         sum(differentiation[q,k] * vars[i][k] for k in 1:n_p_dif),
-    #         time_var,
-    #     ]),
-    #     transcribe_dyn_fun(
-    #         dif_fun.dyn_fun, i, q, phase_vars, time_var, dyn_var_vars, dif_dyn_vars, mesh,
-    #     ),
-    # ])
 end
 
 function transcribe_dyn_fun(
@@ -252,18 +242,7 @@ function transcribe_dyn_fun(
     vars = dyn_var_vars[dif_fun.dyn_var]
     n_p_dif = get_points_dif_length(mesh)
 
-    flex_vars = phase_vars[DOI.phase_index(dif_fun)]
-    n_h = get_intervals_length(mesh)
-    t_0 = mesh.fixed.points_meshes[1].t_a
-    t_f = mesh.fixed.points_meshes[end].t_b
-
-    if i == 1
-        Δt = 1.0 * first(flex_vars) - t_0
-    elseif i == n_h
-        Δt = t_f - 1.0 * last(flex_vars)
-    else
-        Δt = 1.0 * flex_vars[i] - 1.0 * flex_vars[i-1]
-    end
+    Δt = get_time_length(phase_vars, i, DOI.phase_index(dif_fun), mesh)
 
     """
     differentiation matrix here should be equivalent to mesh.Dx * mesh.QX in Tapir
@@ -282,14 +261,38 @@ function transcribe_dyn_fun(
             ),
         ]),
     ])
+end
 
-    # return MOI.ScalarNonlinearFunction(:-, Any[
-    #     MOI.ScalarNonlinearFunction(:/, Any[
-    #         sum(2.0 * differentiation[q,k] * vars[i][k] for k in 1:n_p_dif),
-    #         MOI.ScalarNonlinearFunction(:*, Any[time_var, Δt]),
-    #     ]),
-    #     transcribe_dyn_fun(
-    #         dif_fun.dyn_fun, i, q, phase_vars, time_var, dyn_var_vars, dif_dyn_vars, mesh,
-    #     ),
-    # ])
+function get_time_length(
+    ::PHS_VARS,
+    i::Integer,
+    ::PHS,
+    mesh::FixedIntervalsMesh,
+)
+    t_0 = mesh.points_meshes[i].t_a
+    t_f = mesh.points_meshes[i].t_b
+
+    return t_f - t_0
+end
+
+function get_time_length(
+    phase_vars::PHS_VARS,
+    i::Integer,
+    phase::PHS,
+    mesh::FlexibleIntervalsMesh,
+)
+    flex_vars = phase_vars[phase]
+    n_h = get_intervals_length(mesh)
+    t_0 = mesh.fixed.points_meshes[1].t_a
+    t_f = mesh.fixed.points_meshes[end].t_b
+
+    if i == 1
+        Δt = 1.0 * first(flex_vars) - t_0
+    elseif i == n_h
+        Δt = t_f - 1.0 * last(flex_vars)
+    else
+        Δt = 1.0 * flex_vars[i] - 1.0 * flex_vars[i-1]
+    end
+
+    return Δt
 end

@@ -46,7 +46,7 @@ function transcribe_penalty(
     ::Optimizer,
     ::PHS,
     ::AbstractIntervalsMesh{PM,MM,BM},
-) where {PM,MM<:ASIRMesh,BM}
+) where {PM,MM<:SAIRMesh,BM}
     return nothing
 end
 
@@ -58,8 +58,11 @@ function transcribe_penalty(
 
     pen_fun = transcribe_dyn_least_square(model, phase, mesh)
 
-    return MOI.ScalarNonlinearFunction(:*, [1.0, pen_fun])
+    return MOI.ScalarNonlinearFunction(:*, [_penalty_weight(mesh), pen_fun])
 end
+
+_penalty_weight(mesh::FixedIntervalsMesh{PM,MM,BM}) where {PM,MM<:QPMMesh,BM} = mesh.method_meshes[1].pen_param
+_penalty_weight(mesh::FlexibleIntervalsMesh{PM,MM,BM}) where {PM,MM<:QPMMesh,BM} = mesh.method_mesh.pen_param
 
 function _add_terms(terms::Vector{Any})
     filtered = Any[]

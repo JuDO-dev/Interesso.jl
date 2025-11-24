@@ -114,6 +114,96 @@ mesh_type(::Type{LGRPoints}) = LGRPointsMesh
 
 build_points_mesh(points::LGRPoints, t_a::Real, t_b::Real) = LGRPointsMesh(points, t_a, t_b)
 
+## Legendre-Gauss-Lobatto
+
+"""
+    LGLPoints(size::Integer)
+
+
+"""
+struct LGLPoints <: AbstractPoints
+    points_dif_τ::Vector{Float64}
+    points_alg_τ::Vector{Float64}
+    quad_weights_τ::Vector{Float64}
+
+    function LGLPoints(order_dif::Integer)
+
+        if order_dif < 1
+            throw(DomainError("Please ensure state polynomial order ≥ 1."))
+        end
+
+        points_dif_τ, quad_weights_τ = FGQ.gausslobatto(order_dif+1)
+        points_alg_τ = copy(points_dif_τ)
+
+        return new(points_dif_τ, points_alg_τ, quad_weights_τ)
+    end
+
+    function LGLPoints(order_dif::Integer, order_control::Integer)
+
+        if order_dif < 1
+            throw(DomainError("Please ensure state polynomial order ≥ 1."))
+        end
+        if order_control < 0
+            throw(DomainError("Please ensure control polynomial order ≥ 0."))
+        end
+        if order_dif < order_control
+            throw(DomainError("Please ensure states order >= control order."))
+        end
+
+        points_alg_τ, ~ = FGQ.gausslobatto(order_control+1)
+        points_dif_τ, quad_weights_τ = FGQ.gausslobatto(order_dif+1)
+
+        return new(points_dif_τ, points_alg_τ, quad_weights_τ)
+    end
+end
+
+"""
+    LGLPointsMesh(::LGLPoints, t_a::Real, t_b::Real)
+
+
+"""
+struct LGLPointsMesh <: AbstractPointsMesh
+
+    t_a::Float64
+    t_b::Float64
+
+    points_dif::Vector{Float64}
+    points_alg::Vector{Float64}
+
+    quad_weights::Vector{Float64}
+
+    bary_weights_dif::Vector{Float64}
+    bary_weights_alg::Vector{Float64}
+
+    differentiation::Matrix{Float64}
+
+    function LGLPointsMesh(points::LGLPoints, t_a::Real, t_b::Real)
+
+        _throw_if_invalid_bounds(t_a, t_b)
+
+        Δt = t_b - t_a
+        Σt = t_a + t_b
+
+        points_dif = [0.5 * Δt * p_j .+ 0.5 * Σt for p_j in points.points_dif_τ]
+        points_alg = [0.5 * Δt * p_j .+ 0.5 * Σt for p_j in points.points_alg_τ]
+
+        quad_weights = [0.5 * Δt * w_j for w_j in points.quad_weights_τ]
+
+        bary_weights_dif = _barycentric_weights(points_dif)
+        bary_weights_alg = _barycentric_weights(points_alg)
+        
+        differentiation = _differentiation_matrix(points_dif, bary_weights_dif)
+
+        return new(t_a, t_b, points_dif, points_alg, quad_weights, bary_weights_dif, 
+            bary_weights_alg, differentiation,
+        )
+    end
+end
+
+mesh_type(::Type{LGLPoints}) = LGLPointsMesh
+
+build_points_mesh(points::LGLPoints, t_a::Real, t_b::Real) = LGLPointsMesh(points, t_a, t_b)
+
 ## Gauss-Legendre
 
 struct GLPoints <: AbstractPoints
