@@ -151,10 +151,10 @@ end
 
 # Dynamic variable boundaries
 
-MOI.supports_constraint(::Optimizer, ::DOI.Initial{DYN_VAR}, ::IV64) = true
-MOI.supports_constraint(::Optimizer, ::DOI.Final{DYN_VAR},   ::IV64) = true
+MOI.supports_constraint(::Optimizer, ::DOI.Initial{DYN_VAR}, ::EQ64) = true
+MOI.supports_constraint(::Optimizer, ::DOI.Final{DYN_VAR},   ::EQ64) = true
 
-function MOI.add_constraint(model::Optimizer, dyn_var_initial::DOI.Initial{DYN_VAR}, set::IV64)
+function MOI.add_constraint(model::Optimizer, dyn_var_initial::DOI.Initial{DYN_VAR}, set::EQ64)
 
     dyn_var = dyn_var_initial.dyn_fun
 
@@ -163,15 +163,15 @@ function MOI.add_constraint(model::Optimizer, dyn_var_initial::DOI.Initial{DYN_V
     phase = DOI.phase_index(dyn_var_initial.dyn_fun)
     
     if haskey(model.dyn_var_initials[phase], dyn_var)
-        throw(MOI.AddConstraintNotAllowed{typeof(dyn_var_initial),IV64}("Initial value already set."))
+        throw(MOI.AddConstraintNotAllowed{typeof(dyn_var_initial),EQ64}("Initial value already set."))
     end
 
    model.dyn_var_initials[phase][dyn_var] = set
 
-    return MOI.ConstraintIndex{DOI.Initial{DYN_VAR},IV64}(dyn_var.value)
+    return MOI.ConstraintIndex{DOI.Initial{DYN_VAR},EQ64}(dyn_var.value)
 end
 
-function MOI.add_constraint(model::Optimizer, dyn_var_final::DOI.Final{DYN_VAR}, set::IV64)
+function MOI.add_constraint(model::Optimizer, dyn_var_final::DOI.Final{DYN_VAR}, set::EQ64)
 
     dyn_var = dyn_var_final.dyn_fun
 
@@ -180,12 +180,12 @@ function MOI.add_constraint(model::Optimizer, dyn_var_final::DOI.Final{DYN_VAR},
     phase = DOI.phase_index(dyn_var_final.dyn_fun)
     
     if haskey(model.dyn_var_finals[phase], dyn_var)
-        throw(MOI.AddConstraintNotAllowed{typeof(dyn_var_final),IV64}("Final value already set."))
+        throw(MOI.AddConstraintNotAllowed{typeof(dyn_var_final),EQ64}("Final value already set."))
     end
 
     model.dyn_var_finals[phase][dyn_var] = set
 
-    return MOI.ConstraintIndex{DOI.Final{DYN_VAR},IV64}(dyn_var.value)
+    return MOI.ConstraintIndex{DOI.Final{DYN_VAR},EQ64}(dyn_var.value)
 end
 
 
@@ -210,10 +210,11 @@ end
 
 # Linkages
 
-MOI.supports_constraint(::Optimizer, ::Type{DOI.Linkage{DYN_VAR}}, ::EQ64) = true
+MOI.supports_constraint(::Optimizer, ::DOI.Linkage{<:Union{PHS,DYN_VAR}}, ::EQ64) = true
 
-function MOI.add_constraint(model::Optimizer, linkage::DOI.Linkage{DYN_VAR}, set::EQ64)
+function MOI.add_constraint(model::Optimizer, linkage::DOI.Linkage{T}, set::EQ64) where T<:Union{PHS,DYN_VAR}
 
+    
     _throw_if_invalid_index(model, linkage.dyn_fun_final)
     _throw_if_invalid_index(model, linkage.dyn_fun_initial)
 
