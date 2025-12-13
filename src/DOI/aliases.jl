@@ -21,9 +21,13 @@ const ALG_CONS = OrderedDict{
     Tuple{NDF,EQ64},
 }
 
+# const LINKAGES = OrderedDict{
+#     MOI.ConstraintIndex{DOI.Linkage{DYN_VAR},EQ64},
+#     Tuple{DOI.Linkage{DYN_VAR},EQ64}
+# }
 const LINKAGES = OrderedDict{
-    MOI.ConstraintIndex{DOI.Linkage{DYN_VAR},EQ64},
-    Tuple{DOI.Linkage{DYN_VAR},EQ64}
+    MOI.ConstraintIndex,             # Loosen key to generic ConstraintIndex
+    Tuple{DOI.Linkage,EQ64}          # Loosen value to generic DOI.Linkage
 }
 
 const OBJ = DOI.Bolza{NBF,DOI.MultiPhaseIntegral{NDF}}

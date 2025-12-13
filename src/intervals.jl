@@ -36,7 +36,7 @@ struct FixedIntervals <: AbstractIntervals
 
     function FixedIntervals(
         number::Integer;
-        points::Vector{<:Real}=collect(range(0.0, 1.0, number + 1)),
+        points::Vector{<:Real}=collect(range(0.0, 1.0, length = number + 1)),
     )
         if !(number ≥ 1)
             throw(DomainError(number, "Please ensure number ≥ 1."))
@@ -128,7 +128,7 @@ struct FlexibleIntervals <: AbstractIntervals
     function FlexibleIntervals(
         number::Integer,
         flexibility::Real;
-        points::Vector{Float64}=collect(range(0.0, 1.0, number + 1)),
+        points::Vector{Float64}=collect(range(0.0, 1.0, length = number + 1)),
     )
         if !(number ≥ 2)
             throw(DomainError(number, "Please ensure number ≥ 2."))
