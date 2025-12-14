@@ -1,25 +1,83 @@
 function transcribe_phase!(model::Optimizer, phase::PHS, ::FixedIntervalsMesh)
-    
-    if !haskey(model.phase_finals, phase)
-        Δt = MOI.add_variable(model.inner)
-        MOI.set(model.inner, MOI.VariablePrimalStart(), Δt, 1.0)
-        MOI.add_constraint(model.inner, Δt, MOI.GreaterThan(1e-6))
-        model.time_vars[phase] = Δt
-    else
+
+    function _time(phase::PHS)
+        terms = MOI.ScalarAffineTerm{Float64}[]
+        constant = 0.0
+
+        for p in model.phases
+            t = model.time_vars[p]
+            if t isa MOI.VariableIndex
+                push!(terms, MOI.ScalarAffineTerm(1.0, t))
+            else
+                constant += (model.phase_finals[phase].value - model.phase_initials[phase].value)
+            end
+            p == phase && break
+        end
+
+        return MOI.ScalarAffineFunction(terms, constant)
+    end
+
+    final = get(model.phase_finals, phase, nothing)
+
+    if final isa MOI.EqualTo
         model.time_vars[phase] = 1.0
+        return nothing
+    end
+
+    Δt = MOI.add_variable(model.inner)
+    model.time_vars[phase] = Δt
+    MOI.set(model.inner, MOI.VariablePrimalStart(), Δt, 1.0)
+
+    if final === nothing
+        MOI.add_constraint(model.inner, Δt, MOI.GreaterThan(0.0))
+    elseif final isa MOI.LessThan
+        MOI.add_constraint(model.inner, _time(phase), MOI.Interval(0.0, final.upper))
+    elseif final isa MOI.GreaterThan
+        MOI.add_constraint(model.inner, _time(phase), MOI.GreaterThan(max(0.0, final.lower)))
+    elseif final isa MOI.Interval
+        MOI.add_constraint(model.inner, _time(phase), final)
     end
     return nothing
 end
 
 function transcribe_phase!(model::Optimizer, phase::PHS, mesh::FlexibleIntervalsMesh)
 
-    if !haskey(model.phase_finals, phase)
-        Δt = MOI.add_variable(model.inner)
-        MOI.set(model.inner, MOI.VariablePrimalStart(), Δt, 1.0)
-        MOI.add_constraint(model.inner, Δt, MOI.GreaterThan(1e-6))
-        model.time_vars[phase] = Δt
-    else
+    function _time(phase::PHS)
+        terms = MOI.ScalarAffineTerm{Float64}[]
+        constant = 0.0
+
+        for p in model.phases
+            t = model.time_vars[p]
+            if t isa MOI.VariableIndex
+                push!(terms, MOI.ScalarAffineTerm(1.0, t))
+            else
+                constant += (model.phase_finals[phase].value - model.phase_initials[phase].value)
+            end
+            p == phase && break
+        end
+
+        return MOI.ScalarAffineFunction(terms, constant)
+    end
+
+    final = get(model.phase_finals, phase, nothing)
+
+    if final isa MOI.EqualTo
         model.time_vars[phase] = 1.0
+        return nothing
+    end
+
+    Δt = MOI.add_variable(model.inner)
+    model.time_vars[phase] = Δt
+    MOI.set(model.inner, MOI.VariablePrimalStart(), Δt, 1.0)
+
+    if final === nothing
+        MOI.add_constraint(model.inner, Δt, MOI.GreaterThan(0.0))
+    elseif final isa MOI.LessThan
+        MOI.add_constraint(model.inner, _time(phase), MOI.Interval(0.0, final.upper))
+    elseif final isa MOI.GreaterThan
+        MOI.add_constraint(model.inner, _time(phase), MOI.GreaterThan(max(0.0, final.lower)))
+    elseif final isa MOI.Interval
+        MOI.add_constraint(model.inner, _time(phase), final)
     end
 
     n_h = get_intervals_length(mesh)
@@ -62,7 +120,44 @@ function transcribe_phase!(model::Optimizer, phase::PHS, mesh::FlexibleIntervals
     return nothing
 end
 
-function transcribe_dyn_vars!(model::Optimizer, phase::PHS, mesh::AbstractIntervalsMesh)
+function transcribe_dyn_vars!(
+    model::Optimizer,
+    phase::PHS,
+    mesh::AbstractIntervalsMesh{PM,MM,BM},
+) where {PM<:AbstractRadauMesh,MM,BM}
+    n_h = get_intervals_length(mesh)
+    n_p_dif = get_points_dif_length(mesh)
+    n_p_alg = get_points_alg_length(mesh)
+
+    for dyn_var in model.dyn_vars[phase]
+        if dyn_var in model.dif_dyn_vars
+
+            vars = Vector{Vector{VAR}}(undef, n_h)
+
+            vars[1] = [MOI.add_variable(model.inner) for _ in 1:n_p_dif]
+            for i in 2:n_h
+                vars[i] = Vector{VAR}(undef, n_p_dif)
+                vars[i][1] = vars[i-1][end]
+                for j in 2:(n_p_dif)
+                    vars[i][j] = MOI.add_variable(model.inner)
+                end
+            end
+
+            model.dyn_var_vars[dyn_var] = vars
+        else
+            model.dyn_var_vars[dyn_var] = [
+                [MOI.add_variable(model.inner) for _ in 1:n_p_alg] for _ in 1:n_h
+            ]
+        end
+    end
+    return nothing
+end
+
+function transcribe_dyn_vars!(
+    model::Optimizer,
+    phase::PHS,
+    mesh::AbstractIntervalsMesh{PM,MM,BM},
+) where {PM<:AbstractLobattoMesh,MM,BM}
     
     n_h = get_intervals_length(mesh)
     n_p_dif = get_points_dif_length(mesh)
@@ -81,7 +176,7 @@ function transcribe_dyn_vars!(model::Optimizer, phase::PHS, mesh::AbstractInterv
                     1.0 * last(vars[i-1]) - 1.0 * first(vars[i]),
                     MOI.EqualTo(0.0),
                 )
-            end     
+            end
 
             model.dyn_var_vars[dyn_var] = vars
         else
@@ -139,7 +234,39 @@ function transcribe_bounds!(
     model::Optimizer,
     phase::PHS,
     mesh::AbstractIntervalsMesh{PM,MM,BM},
-) where {PM,MM,BM<:ExactBoundsMesh}
+) where {PM<:AbstractRadauMesh,MM,BM<:ExactBoundsMesh}
+
+    n_h = get_intervals_length(mesh)
+    n_p_dif = get_points_dif_length(mesh)
+    n_p_alg = get_points_alg_length(mesh)
+
+    for (dyn_var, set) in model.dyn_var_bounds[phase]
+        
+        vars = model.dyn_var_vars[dyn_var]
+
+        if dyn_var in model.dif_dyn_vars
+            MOI.add_constraint(model.inner, vars[1][1], set)
+            for i in 1:n_h
+                for j in 2:n_p_dif
+                    MOI.add_constraint(model.inner, vars[i][j], set)
+                end
+            end
+        else
+            for i in 1:n_h
+                for j in 1:n_p_alg
+                    MOI.add_constraint(model.inner, vars[i][j], set)
+                end
+            end
+        end
+    end
+    return nothing
+end
+
+function transcribe_bounds!(
+    model::Optimizer,
+    phase::PHS,
+    mesh::AbstractIntervalsMesh{PM,MM,BM},
+) where {PM<:AbstractLobattoMesh,MM,BM<:ExactBoundsMesh}
 
     n_h = get_intervals_length(mesh)
     n_p_dif = get_points_dif_length(mesh)
@@ -316,19 +443,11 @@ function transcribe_dif_cons!(
     return nothing
 end
 
-# function transcribe_dif_cons!(
-#     ::Optimizer,
-#     ::PHS,
-#     ::AbstractIntervalsMesh{PM,MM,BM},
-# ) where {PM,MM<:QPMMesh,BM}
-#     return nothing
-# end
-
 function transcribe_dif_cons!(
     model::Optimizer,
     phase::PHS,
     mesh::AbstractIntervalsMesh{PM,MM,BM},
-) where {PM,MM<:SAIRMesh,BM}
+) where {PM,MM<:Union{SAIRMesh,SAPMMesh},BM}
 
     grad_res_funcs = transcribe_grad_dyn_least_square(model, phase, mesh)
 
@@ -355,18 +474,6 @@ function transcribe_alg_cons!(
     n_h = get_intervals_length(mesh)
     ϵ = 1e-4
 
-    # =================== formulation 1, sum all intervals and dyn/alg constraints ===================
-    # scale = n_h * (length(model.dif_cons[phase]) + length(model.alg_cons[phase]))
-    # ϵ *= scale
-    # f = transcribe_dyn_least_square(model, phase, mesh)
-    # MOI.add_constraint(
-    #     model.inner,
-    #     f,
-    #     MOI.LessThan(ϵ),
-    # )
-    # push!(model.res_funcs, f)
-
-    # =================== formulation 2, sum all dyn/alg constraints ===================
     scale = length(model.dif_cons[phase]) + length(model.alg_cons[phase])
     ϵ *= scale
     for i = 1:n_h
@@ -379,82 +486,6 @@ function transcribe_alg_cons!(
         push!(model.res_funcs, f)
     end
 
-    # =================== formulation 3, all independent without lifting ===================
-    # for i = 1:n_h
-    #     for (dif_fun, _) in values(model.dif_cons[phase])
-    #         dif_con = transcribe_dif_least_square(model, dif_fun, i, phase, mesh)
-    #         push!(model.res_funcs, dif_con)
-    #         MOI.add_constraint(
-    #             model.inner,
-    #             dif_con,
-    #             MOI.LessThan(ϵ),
-    #         )
-    #     end
-    #     for (alg_fun, _) in values(model.alg_cons[phase])
-    #         alg_con = transcribe_alg_least_square(model, alg_fun, i, phase, mesh)
-    #         push!(model.res_funcs, alg_con)
-    #         MOI.add_constraint(
-    #             model.inner,
-    #             alg_con,
-    #             MOI.LessThan(ϵ),
-    #         )
-    #     end
-    # end
-
-    # =================== formulation 4, all independent with lifting ===================
-    """
-    r = (dx - f(x))^2
-    r - s^2 == 0
-    0 ≤ s ≤ √ϵ
-    """
-    # ϵ = sqrt(ϵ)  # [0, sqrt(ϵ)], if s^2
-    # for i = 1:n_h
-    #     for (dif_fun, _) in values(model.dif_cons[phase])
-    #         s = MOI.add_variable(model.inner)
-    #         MOI.add_constraint(
-    #             model.inner,
-    #             s,
-    #             MOI.LessThan(ϵ)
-    #         )
-    #         dif_con = MOI.ScalarNonlinearFunction(
-    #             :-,
-    #             [
-    #                 transcribe_dif_least_square(model, dif_fun, i, phase, mesh),
-    #                 s,
-    #                 # MOI.ScalarNonlinearFunction(:^, [s, 2.0]),
-    #             ]
-    #         )
-    #         push!(model.res_funcs, dif_con)
-    #         MOI.add_constraint(
-    #             model.inner,
-    #             dif_con,
-    #             MOI.EqualTo(0.0),
-    #         )
-    #     end
-    #     for (alg_fun, _) in values(model.alg_cons[phase])
-    #         s = MOI.add_variable(model.inner)
-    #         MOI.add_constraint(
-    #             model.inner,
-    #             s,
-    #             MOI.LessThan(ϵ)
-    #         )
-    #         alg_con = MOI.ScalarNonlinearFunction(
-    #             :-,
-    #             [
-    #                 transcribe_alg_least_square(model, alg_fun, i, phase, mesh),
-    #                 s,
-    #                 # MOI.ScalarNonlinearFunction(:^, [s, 2.0]),
-    #             ]
-    #         )
-    #         push!(model.res_funcs, alg_con)
-    #         MOI.add_constraint(
-    #             model.inner,
-    #             alg_con,
-    #             MOI.EqualTo(0.0),
-    #         )
-    #     end
-    # end
-
     return nothing
 end
 
@@ -462,7 +493,7 @@ function transcribe_alg_cons!(
     ::Optimizer,
     ::PHS,
     ::AbstractIntervalsMesh{PM,MM,BM},
-) where {PM,MM<:QPMMesh,BM}
+) where {PM,MM<:Union{QPMMesh,SAPMMesh},BM}
     return nothing
 end
 

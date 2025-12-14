@@ -78,9 +78,9 @@ end
 
 DAIR(number::Integer) = DAIR(GLPoints(number))
 
-struct QPM{T<:AbstractPoints} <: AbstractIntRes
+struct QPM{T<:AbstractPoints, R<:Real} <: AbstractIntRes
     quad_points::T
-    pen_param::Real
+    pen_param::R
 end
 
 QPM(number::Integer; pen_param::Real=1.0) = QPM(GLPoints(number), pen_param)
@@ -90,6 +90,13 @@ struct SAIR{T<:AbstractPoints} <: AbstractIntRes
 end
 
 SAIR(number::Integer) = SAIR(GLPoints(number))
+
+struct SAPM{T<:AbstractPoints, R<:Real} <: AbstractIntRes
+    quad_points::T
+    pen_param::R
+end
+
+SAPM(number::Integer; pen_param::Real=1.0) = SAPM(GLPoints(number), pen_param)
 
 
 """
@@ -120,10 +127,10 @@ mesh_type(::Type{DAIR}) = DAIRMesh
 build_method_mesh(points::DAIR, mesh::AbstractPointsMesh) = DAIRMesh(points, mesh)
 
 # QPM
-struct QPMMesh{P<:AbstractPointsMesh, I<:AbstractInterpolant} <: AbstractIntResMesh
+struct QPMMesh{P<:AbstractPointsMesh, I<:AbstractInterpolant, R<:Real} <: AbstractIntResMesh
     quad_points_mesh::P
     interpolant::I
-    pen_param::Real
+    pen_param::R
 end
 
 QPMMesh(quad_points_mesh::P, interpolant::I) where {P<:AbstractPointsMesh,I<:AbstractInterpolant} =
@@ -158,3 +165,25 @@ end
 mesh_type(::Type{SAIR}) = SAIRMesh
 
 build_method_mesh(points::SAIR, mesh::AbstractPointsMesh) = SAIRMesh(points, mesh)
+
+# SAPM
+struct SAPMMesh{P<:AbstractPointsMesh, I<:AbstractInterpolant, R<:Real} <: AbstractIntResMesh
+    quad_points_mesh::P
+    interpolant::I
+    pen_param::R
+end
+
+SAPMMesh(quad_points_mesh::P, interpolant::I) where {P<:AbstractPointsMesh,I<:AbstractInterpolant} =
+    SAPMMesh(quad_points_mesh, interpolant, 1.0)
+
+function SAPMMesh(points::SAPM, mesh::AbstractPointsMesh)
+
+    quad_mesh = GLPointsMesh(points.quad_points, mesh.t_a, mesh.t_b)
+    interpolant = PM_MM_Interpolation(mesh, quad_mesh)
+
+    return SAPMMesh(quad_mesh, interpolant, points.pen_param)
+end
+
+mesh_type(::Type{SAPM}) = SAPMMesh
+
+build_method_mesh(points::SAPM, mesh::AbstractPointsMesh) = SAPMMesh(points, mesh)

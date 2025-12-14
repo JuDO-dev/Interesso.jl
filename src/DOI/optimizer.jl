@@ -9,12 +9,12 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
     # Dynamic Optimization Problem
     name::String
     phases::OrderedSet{PHS}
-    phase_initials::OrderedDict{PHS,Float64}
-    phase_finals::OrderedDict{PHS,Float64}
+    phase_initials::OrderedDict{PHS,EQ64}
+    phase_finals::OrderedDict{PHS,LC64}
     dyn_vars::OrderedDict{PHS,OrderedSet{DYN_VAR}}
     dyn_var_bounds::OrderedDict{PHS,OrderedDict{DYN_VAR,IV64}}
-    dyn_var_initials::OrderedDict{PHS,OrderedDict{DYN_VAR,EI64}}
-    dyn_var_finals::OrderedDict{PHS,OrderedDict{DYN_VAR,EI64}}
+    dyn_var_initials::OrderedDict{PHS,OrderedDict{DYN_VAR,LC64}}
+    dyn_var_finals::OrderedDict{PHS,OrderedDict{DYN_VAR,LC64}}
     linkages::LINKAGES
     dif_dyn_vars::OrderedSet{DYN_VAR}
     dif_cons::OrderedDict{PHS,DIF_CONS}
@@ -64,11 +64,11 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
     )
 
         if default_method isa Collocation
-            if default_points isa LGRPoints
+            if default_points isa AbstractRadauPoints
                 if !(length(default_points.points_dif_τ) == length(default_points.points_alg_τ) + 1)
                     throw(DomainError("Collocation method requires states and control to be of same order."))
                 end
-            elseif default_points isa LGLPoints
+            elseif default_points isa AbstractLobattoPoints
                 if !(length(default_points.points_dif_τ) == length(default_points.points_alg_τ))
                     throw(DomainError("Collocation method requires states and control to be of same order."))
                 end
@@ -87,12 +87,12 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
             default_bounds,
             "",
             OrderedSet{PHS}(),
-            OrderedDict{PHS,Float64}(),
-            OrderedDict{PHS,Float64}(),
+            OrderedDict{PHS,EQ64}(),
+            OrderedDict{PHS,LC64}(),
             OrderedDict{PHS,OrderedSet{DYN_VAR}}(),
             OrderedDict{PHS,OrderedDict{DYN_VAR,IV64}}(),
-            OrderedDict{PHS,OrderedDict{DYN_VAR,EI64}}(),
-            OrderedDict{PHS,OrderedDict{DYN_VAR,EI64}}(),
+            OrderedDict{PHS,OrderedDict{DYN_VAR,LC64}}(),
+            OrderedDict{PHS,OrderedDict{DYN_VAR,LC64}}(),
             LINKAGES(),
             OrderedSet{DYN_VAR}(),
             OrderedDict{PHS,DIF_CONS}(),
@@ -201,9 +201,9 @@ function MOI.optimize!(model::Optimizer)
                 error("Please ensure that all phases have a fixed initial value.")
             end
 
-            if haskey(model.phase_finals, phase)
-                t_0 = model.phase_initials[phase]
-                t_f = model.phase_finals[phase]
+            if haskey(model.phase_finals, phase) && model.phase_finals[phase] isa MOI.EqualTo
+                t_0 = model.phase_initials[phase].value
+                t_f = model.phase_finals[phase].value
             else
                 t_0 = 0.0
                 t_f = 1.0

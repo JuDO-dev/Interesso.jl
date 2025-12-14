@@ -3,7 +3,6 @@ import DynOptInterface as DOI
 using Interesso
 using Plots
 using SLOW
-using Uno
 
 
 const NDF = DOI.NonlinearDynamicFunction
@@ -24,21 +23,23 @@ MOI.set(optimizer, MOI.RawOptimizerAttribute("dual"), false)
 MOI.set(optimizer, MOI.RawOptimizerAttribute("ρ0"), 10.0)
 MOI.set(optimizer, MOI.RawOptimizerAttribute("h_norm"), 1)
 MOI.set(optimizer, MOI.RawOptimizerAttribute("logging"), 2)
-MOI.set(optimizer, MOI.RawOptimizerAttribute("max_iter"),1000)
+MOI.set(optimizer, MOI.RawOptimizerAttribute("max_iter"),3000)
 
 model = Interesso.Optimizer(
     inner=optimizer,
-    # inner = Uno.Optimizer(preset="filtersqp"),
+    # inner = UnoSolver.Optimizer(preset="filtersqp"),
     # default_intervals=FlexibleIntervals(30, 0.1),
-    default_intervals=FixedIntervals(30),
-    default_points=LGLPoints(3),
+    default_intervals=FixedIntervals(50),
+    default_points=LGRPoints(3),
     # default_method=Collocation(),
-    default_method=SAIR(5)
-    # default_method=QPM(5; pen_param=1),
+    default_method=SAIR(5),
+    # default_method=QPM(5; pen_param=100),
     # default_bounds=SampledBounds(5),
 )
 u_sol, x_sol, v_sol, model = bang_bang(model);
 # ws = Interesso.get_solutions(model)
+
+assess_solution(model; q=20)
 
 # model2 = Interesso.Optimizer(
 #     # inner=optimizer,
@@ -67,4 +68,4 @@ u_sol, x_sol, v_sol, model = bang_bang(model);
 # println("average 1-norm residual")
 # println(sum(abs_eval) / length(_eval))
 
-# plot(tau -> u_sol(tau), x_sol.initial, x_sol.final)
+plot(tau -> u_sol(tau), x_sol.initial, x_sol.final)

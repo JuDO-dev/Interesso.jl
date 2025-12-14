@@ -2,7 +2,7 @@ import MathOptInterface as MOI
 import DynOptInterface as DOI
 using Interesso
 using Plots
-using SLOW, Uno
+using SLOW
 
 
 const NDF = DOI.NonlinearDynamicFunction
@@ -21,7 +21,7 @@ optimizer = SLOW.Optimizer()
 MOI.set(optimizer, MOI.RawOptimizerAttribute("dual"), false)
 MOI.set(optimizer, MOI.RawOptimizerAttribute("ρ0"), 10.0)
 MOI.set(optimizer, MOI.RawOptimizerAttribute("h_norm"), 1)
-MOI.set(optimizer, MOI.RawOptimizerAttribute("max_iter"), 0)
+MOI.set(optimizer, MOI.RawOptimizerAttribute("max_iter"), 300)
 # MOI.set(optimizer, MOI.RawOptimizerAttribute("max_time"), 60.0)
 MOI.set(optimizer, MOI.RawOptimizerAttribute("logging"), 2)
 
@@ -29,15 +29,18 @@ MOI.set(optimizer, MOI.RawOptimizerAttribute("logging"), 2)
 model = Interesso.Optimizer(
     inner=optimizer,
     # inner = Uno.Optimizer(preset="filtersqp"),
-    # default_intervals=FlexibleIntervals(20, 0.0),
-    default_intervals=FixedIntervals(30),
+    # default_intervals=FlexibleIntervals(30, 0.1),
+    default_intervals=FixedIntervals(50),
     default_points=LGRPoints(3),
     # default_method=Collocation(),
-    default_method=SAIR(5),
-    # default_bounds=SampledBounds(5)
+    default_method=SAIR(7),
+    # default_method=QPM(5; pen_param=100),
+    default_bounds=SampledBounds(9),
 )
 
 u_sol, r_sol, v_sol, model = cart_pole(model)
+
+assess_solution(model;q=20)
 
 # ws = Interesso.get_solutions(model)
 # MOI.empty!(model)
@@ -58,7 +61,7 @@ u_sol, r_sol, v_sol, model = cart_pole(model)
 # println("average 1-norm residual")
 # println(sum(abs_eval) / length(_eval))
 
-ws = perturb_solutions(Interesso.get_solutions(model), 0.0)
+# ws = perturb_solutions(Interesso.get_solutions(model), 0.0)
 
 # MOI.empty!(model)
 

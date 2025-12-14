@@ -33,14 +33,14 @@ end
 MOI.supports_constraint(
     ::Optimizer,
     ::Type{<:DOI.AbstractBoundaryFunction},
-    ::Type{<:MOI.AbstractScalarSet},
+    ::Type{<:LC64},
 ) = true
 
 function MOI.add_constraint(
     model::Optimizer,
     fun::BF,
     set::S,
-) where {BF<:DOI.AbstractBoundaryFunction,S<:MOI.AbstractScalarSet}
+) where {BF<:DOI.AbstractBoundaryFunction,S<:LC64}
 
     index = MOI.ConstraintIndex{BF,S}(model.last_index_bou_cons + 1)
     model.bou_cons[index] = (fun, set)
@@ -53,7 +53,7 @@ function MOI.get(
     model::Optimizer,
     ::MOI.ConstraintFunction,
     con::MOI.ConstraintIndex{BF,S},
-) where {BF<:DOI.AbstractBoundaryFunction,S<:MOI.AbstractScalarSet}
+) where {BF<:DOI.AbstractBoundaryFunction,S<:LC64}
     return model.bou_cons[con][1]
 end
 
@@ -61,7 +61,7 @@ function MOI.get(
     model::Optimizer,
     ::MOI.ConstraintSet,
     con::MOI.ConstraintIndex{BF,S},
-) where {BF<:DOI.AbstractBoundaryFunction,S<:MOI.AbstractScalarSet}
+) where {BF<:DOI.AbstractBoundaryFunction,S<:LC64}
     return model.bou_cons[con][2]
 end
 
@@ -103,7 +103,7 @@ end
 # Phase boundaries
 
 MOI.supports_constraint(::Optimizer, ::Type{DOI.Initial{PHS}}, ::Type{EQ64}) = true
-MOI.supports_constraint(::Optimizer, ::Type{DOI.Final{PHS}},   ::Type{EQ64}) = true
+MOI.supports_constraint(::Optimizer, ::Type{DOI.Final{PHS}},   ::Type{LC64}) = true
 
 function MOI.add_constraint(model::Optimizer, phase_initial::DOI.Initial{PHS}, set::EQ64)
 
@@ -117,12 +117,12 @@ function MOI.add_constraint(model::Optimizer, phase_initial::DOI.Initial{PHS}, s
         ))
     end
 
-    model.phase_initials[phase] = set.value
+    model.phase_initials[phase] = set
 
     return MOI.ConstraintIndex{DOI.Initial{PHS},EQ64}(phase.value)
 end
 
-function MOI.add_constraint(model::Optimizer, phase_final::DOI.Final{PHS}, set::EQ64)
+function MOI.add_constraint(model::Optimizer, phase_final::DOI.Final{PHS}, set::LC64)
 
     phase = phase_final.dyn_fun
 
@@ -134,9 +134,21 @@ function MOI.add_constraint(model::Optimizer, phase_final::DOI.Final{PHS}, set::
         ))
     end
 
-    model.phase_finals[phase] = set.value
+    if set isa MOI.LessThan
+        if set.upper <= 0.0
+            throw(DomainError("Final time should have a positive upper bound."))
+        end
+    end
 
-    return MOI.ConstraintIndex{DOI.Final{PHS},EQ64}(phase.value)
+    if set isa MOI.Interval
+        if set.lower <= 0.0
+            throw(DomainError("Final time should have a positive lower bound."))
+        end
+    end
+
+    model.phase_finals[phase] = set
+
+    return MOI.ConstraintIndex{DOI.Final{PHS},LC64}(phase.value)
 end
 
 
@@ -189,10 +201,10 @@ end
 
 # Dynamic variable boundaries
 
-MOI.supports_constraint(::Optimizer, ::DOI.Initial{DYN_VAR}, ::EI64) = true
-MOI.supports_constraint(::Optimizer, ::DOI.Final{DYN_VAR},   ::EI64) = true
+MOI.supports_constraint(::Optimizer, ::DOI.Initial{DYN_VAR}, ::LC64) = true
+MOI.supports_constraint(::Optimizer, ::DOI.Final{DYN_VAR},   ::LC64) = true
 
-function MOI.add_constraint(model::Optimizer, dyn_var_initial::DOI.Initial{DYN_VAR}, set::EI64)
+function MOI.add_constraint(model::Optimizer, dyn_var_initial::DOI.Initial{DYN_VAR}, set::LC64)
 
     dyn_var = dyn_var_initial.dyn_fun
 
@@ -209,7 +221,7 @@ function MOI.add_constraint(model::Optimizer, dyn_var_initial::DOI.Initial{DYN_V
     return MOI.ConstraintIndex{DOI.Initial{DYN_VAR},EI64}(dyn_var.value)
 end
 
-function MOI.add_constraint(model::Optimizer, dyn_var_final::DOI.Final{DYN_VAR}, set::EI64)
+function MOI.add_constraint(model::Optimizer, dyn_var_final::DOI.Final{DYN_VAR}, set::LC64)
 
     dyn_var = dyn_var_final.dyn_fun
 

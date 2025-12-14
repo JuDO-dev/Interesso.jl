@@ -1,3 +1,16 @@
+function assess_solution(model::Optimizer, ; q::Integer=10)
+
+    residual_error = sum(abs, eval_funcs(model.inner, model.res_funcs))
+    solution_error = eval_accuracy(model; q=q)
+    quad_error = abs(solution_error - residual_error)
+
+    println("Solution Error: ", solution_error)
+    println("Residual Error: ", residual_error)
+    println("Quadrature Error: ", quad_error)
+
+    return nothing
+end
+
 function eval_funcs(optimizer::MOI.ModelLike, funcs::Vector{<:MOI.AbstractFunction})
     var_idxs = MOI.get(optimizer, MOI.ListOfVariableIndices())
     x_vals   = MOI.get(optimizer, MOI.VariablePrimal(), var_idxs)

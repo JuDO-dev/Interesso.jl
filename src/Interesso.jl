@@ -31,11 +31,11 @@ include("post_solve/perturb.jl")
 
 export AbstractInterpolant, PiecewiseInterpolant, LagrangeInterpolant
 export AbstractPoints, AbstractPointsMesh, LGRPoints, LGLPoints
-export AbstractMethod, AbstractMethodMesh, AbstractIntRes, AbstractIntResMesh, Collocation, DAIR, QPM, SAIR
+export AbstractMethod, AbstractMethodMesh, AbstractIntRes, AbstractIntResMesh, Collocation, DAIR, QPM, SAIR, SAPM
 export AbstractBounds, AbstractBoundsMesh, ExactBounds, SampledBounds, BernsteinBounds
 export AbstractIntervals, AbstractIntervalsMesh, FixedIntervals, FlexibleIntervals
 export get_solutions, warmstart!
-export eval_funcs, eval_accuracy
+export eval_funcs, eval_accuracy, assess_solution
 export perturb_solution, perturb_solutions
 
 end

@@ -24,7 +24,7 @@ function transcribe_sol_derivative!(
 )
     phase_initials = OrderedDict{PHS,Float64}()
     Δt = OrderedDict{PHS,Float64}()
-    t = model.phase_initials[first(model.phases)]
+    t = model.phase_initials[first(model.phases)].value
 
     for p in model.phases
         phase_initials[p] = t

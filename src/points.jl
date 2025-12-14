@@ -22,6 +22,16 @@ get_points_dif_length(mesh::AbstractPointsMesh) = length(mesh.points_dif)
 get_points_alg_length(mesh::AbstractPointsMesh) = length(mesh.points_alg)
 get_points_quad_length(mesh::AbstractPointsMesh) = length(mesh.points_alg)
 
+
+abstract type AbstractRadauPoints <: AbstractPoints end
+
+abstract type AbstractLobattoPoints <: AbstractPoints end
+
+abstract type AbstractRadauMesh <: AbstractPointsMesh end
+
+abstract type AbstractLobattoMesh <: AbstractPointsMesh end
+
+
 ## Legendre-Gauss-Radau
 
 """
@@ -29,7 +39,7 @@ get_points_quad_length(mesh::AbstractPointsMesh) = length(mesh.points_alg)
 
 
 """
-struct LGRPoints <: AbstractPoints
+struct LGRPoints <: AbstractRadauPoints
     points_dif_τ::Vector{Float64}
     points_alg_τ::Vector{Float64}
     quad_weights_τ::Vector{Float64}
@@ -40,28 +50,29 @@ struct LGRPoints <: AbstractPoints
             throw(DomainError("Please ensure state polynomial order ≥ 1."))
         end
 
-        points_alg_τ, ~ = FGQ.gaussradau(order_dif)
         points_dif_τ, quad_weights_τ = FGQ.gaussradau(order_dif)
         points_dif_τ = vcat(points_dif_τ, 1.0)
+        points_alg_τ, ~ = FGQ.gaussradau(order_dif)
 
         return new(points_dif_τ, points_alg_τ, quad_weights_τ)
     end
 
-    function LGRPoints(order_dif::Integer, order_control::Integer)
+    function LGRPoints(order_dif::Integer, order_alg::Integer)
 
         if order_dif < 1
             throw(DomainError("Please ensure state polynomial order ≥ 1."))
         end
-        if order_control < 0
+        if order_alg < 0
             throw(DomainError("Please ensure control polynomial order ≥ 0."))
         end
-        if order_dif <= order_control
+        if order_dif <= order_alg
             throw(DomainError("Please ensure states order > control order."))
         end
 
-        points_alg_τ, ~ = FGQ.gaussradau(order_control+1)
+
         points_dif_τ, quad_weights_τ = FGQ.gaussradau(order_dif)
         points_dif_τ = vcat(points_dif_τ, 1.0)
+        points_alg_τ, ~ = FGQ.gaussradau(order_alg)
 
         return new(points_dif_τ, points_alg_τ, quad_weights_τ)
     end
@@ -72,7 +83,7 @@ end
 
 
 """
-struct LGRPointsMesh <: AbstractPointsMesh
+struct LGRPointsMesh <: AbstractRadauMesh
 
     t_a::Float64
     t_b::Float64
@@ -121,7 +132,7 @@ build_points_mesh(points::LGRPoints, t_a::Real, t_b::Real) = LGRPointsMesh(point
 
 
 """
-struct LGLPoints <: AbstractPoints
+struct LGLPoints <: AbstractLobattoPoints
     points_dif_τ::Vector{Float64}
     points_alg_τ::Vector{Float64}
     quad_weights_τ::Vector{Float64}
@@ -138,21 +149,21 @@ struct LGLPoints <: AbstractPoints
         return new(points_dif_τ, points_alg_τ, quad_weights_τ)
     end
 
-    function LGLPoints(order_dif::Integer, order_control::Integer)
+    function LGLPoints(order_dif::Integer, order_alg::Integer)
 
         if order_dif < 1
             throw(DomainError("Please ensure state polynomial order ≥ 1."))
         end
-        if order_control < 0
+        if order_alg < 0
             throw(DomainError("Please ensure control polynomial order ≥ 0."))
         end
-        if order_dif < order_control
+        if order_dif < order_alg
             throw(DomainError("Please ensure states order >= control order."))
         end
 
-        points_alg_τ, ~ = FGQ.gausslobatto(order_control+1)
         points_dif_τ, quad_weights_τ = FGQ.gausslobatto(order_dif+1)
-
+        points_alg_τ, ~ = FGQ.gausslobatto(order_alg+1)
+        
         return new(points_dif_τ, points_alg_τ, quad_weights_τ)
     end
 end
@@ -162,7 +173,7 @@ end
 
 
 """
-struct LGLPointsMesh <: AbstractPointsMesh
+struct LGLPointsMesh <: AbstractLobattoMesh
 
     t_a::Float64
     t_b::Float64
@@ -254,7 +265,7 @@ build_method_mesh(points::GLPoints, mesh::AbstractPointsMesh) = GLPointsMesh(poi
 
 ##  Chebyshev-Gauss-Lobatto
 
-struct CGLPoints <: AbstractPoints
+struct CGLPoints <: AbstractLobattoPoints
     points_alg_τ::Vector{Float64}
 
     function CGLPoints(number::Integer)

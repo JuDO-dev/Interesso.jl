@@ -474,21 +474,12 @@ function transcribe_dyn_least_square(
     mesh::AbstractIntervalsMesh{PM,MM,BM},
 ) where {PM,MM<:AbstractIntResMesh,BM}
 
-    n_func = length(model.dif_cons[phase]) + length(model.alg_cons[phase])
-    Δt = get_time_length(model.phase_vars, i, phase, mesh)
-
     return MOI.ScalarNonlinearFunction(
-        # :*,
-        # [
-        #     1.0 / (n_func * Δt),
-        #     MOI.ScalarNonlinearFunction(
-                :+,
-                [
-                    transcribe_dif_least_square(model, i, phase, mesh),
-                    transcribe_alg_least_square(model, i, phase, mesh),
-                ]
-        #     )
-        # ]
+        :+,
+        [
+            transcribe_dif_least_square(model, i, phase, mesh),
+            transcribe_alg_least_square(model, i, phase, mesh),
+        ]
     )
 end
 
@@ -514,7 +505,7 @@ function transcribe_dyn_least_square(
     return MOI.ScalarNonlinearFunction(
         :+,
         [
-            transcribe_dyn_least_square(model, phase, mesh) for (phase, mesh) in meshes if mesh.method_mesh isa QPMMesh
+            transcribe_dyn_least_square(model, phase, mesh) for (phase, mesh) in meshes if mesh.method_mesh isa Union{QPMMesh,SAPMMesh}
         ]
     )
 end

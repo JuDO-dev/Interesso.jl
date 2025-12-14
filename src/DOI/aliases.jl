@@ -7,7 +7,10 @@ const NBF = DOI.NonlinearBoundaryFunction
 
 const EQ64 = MOI.EqualTo{Float64}
 const IV64 = MOI.Interval{Float64}
+const LE64 = MOI.LessThan{Float64}
+const GE64 = MOI.GreaterThan{Float64}
 const EI64 = Union{EQ64,IV64}
+const LC64 = Union{EQ64,IV64,LE64,GE64}
 
 const STARTS = OrderedDict{DYN_VAR,DOI.AbstractDynamicSolution}
 
@@ -24,8 +27,13 @@ const ALG_CONS = OrderedDict{
 }
 
 const BOU_CONS = OrderedDict{
-    Union{MOI.ConstraintIndex{NBF,EQ64}, MOI.ConstraintIndex{NBF,IV64}},
-    Tuple{NBF,EI64},
+    Union{
+        MOI.ConstraintIndex{NBF,EQ64},
+        MOI.ConstraintIndex{NBF,IV64},
+        MOI.ConstraintIndex{NBF,LE64},
+        MOI.ConstraintIndex{NBF,GE64}
+    },
+    Tuple{NBF,LC64},
 }
 
 const LINKAGES = OrderedDict{
