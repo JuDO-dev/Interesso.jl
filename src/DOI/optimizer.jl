@@ -228,18 +228,22 @@ function MOI.optimize!(model::Optimizer)
 
         transcribe_dyn_vars!(model, phase, model.meshes[phase])
 
-        transcribe_dyn_var_starts!(model, phase, model.meshes[phase])
+        n_h = get_intervals_length(model.meshes[phase])
+
+        for i in 1:n_h
+
+            transcribe_dyn_vars!(model, i, phase, model.meshes[phase])
+
+            transcribe_dyn_var_starts!(model, i, phase, model.meshes[phase])
+            
+            transcribe_bounds!(model, i, phase, model.meshes[phase])
         
-        transcribe_bounds!(model, phase, model.meshes[phase])
-    
-        transcribe_dif_cons!(model, phase, model.meshes[phase])
+            transcribe_dif_cons!(model, i, phase, model.meshes[phase])
 
-        transcribe_alg_cons!(model, phase, model.meshes[phase])
+            transcribe_alg_cons!(model, i, phase, model.meshes[phase])
+            
+        end
     end
-
-    transcribe_initials!(model, model.meshes)
-    
-    transcribe_finals!(model, model.meshes)
 
     transcribe_bou_cons!(model, model.meshes)
 

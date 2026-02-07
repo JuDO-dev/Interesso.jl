@@ -22,19 +22,13 @@ function cart_pole(
     MOI.add_constraint(model, DOI.Final(t), MOI.EqualTo(2.0))
 
     ## Input Dynamic Variable
-    u = DOI.add_dynamic_variable(model, t)
+    @variable(model, u, t)
 
     ## State Dynamic Variables
-    r = DOI.add_dynamic_variable(model, t)
-    θ = DOI.add_dynamic_variable(model, t)
-    v = DOI.add_dynamic_variable(model, t)
-    ω = DOI.add_dynamic_variable(model, t)
-
-    MOI.set(model, DOI.DynamicVariableName(), u, "u")
-    MOI.set(model, DOI.DynamicVariableName(), r, "r")
-    MOI.set(model, DOI.DynamicVariableName(), θ, "θ")
-    MOI.set(model, DOI.DynamicVariableName(), v, "ν")
-    MOI.set(model, DOI.DynamicVariableName(), ω, "ω")
+    @variable(model, r, t)
+    @variable(model, θ, t)
+    @variable(model, v, t)
+    @variable(model, ω, t)
 
     ## Inequality constraint
     MOI.add_constraint(model, u, MOI.Interval(-u_max, u_max))
@@ -130,10 +124,5 @@ function cart_pole(
 
     MOI.optimize!(model)
 
-    ## Retrieve solutions
-    u_sol = MOI.get(model, DOI.DynamicVariableSolution(), u)
-    r_sol = MOI.get(model, DOI.DynamicVariableSolution(), r)
-    v_sol = MOI.get(model, DOI.DynamicVariableSolution(), v)
-
-    return u_sol, r_sol, v_sol, model
+    return nothing
 end

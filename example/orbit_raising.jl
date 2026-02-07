@@ -10,12 +10,12 @@ function orbit_raising(
 
     ## Time as a phase
     t = DOI.add_phase(model)
-    MOI.add_constraint(model, DOI.Initial(t), MOI.EqualTo(t_0))
-    MOI.add_constraint(model, DOI.Final(t), MOI.EqualTo(t_f))
+    MOI.add_constraint(model, DOI.Initial(t), MOI.EqualTo(0.0))
+    MOI.add_constraint(model, DOI.Final(t), MOI.EqualTo(3.32))
 
     ## Input Dynamic Variable
-    u1 = DOI.add_dynamic_variable(model, t)
-    u2 = DOI.add_dynamic_variable(model, t)
+    @variable(model, u1, t)
+    @variable(model, u2, t)
     MOI.add_constraint(
         model, 
         NDF(
@@ -31,21 +31,14 @@ function orbit_raising(
     )
 
     ## State Dynamic Variables
-    r = DOI.add_dynamic_variable(model, t)
+    @variable(model, r, t)
     MOI.add_constraint(model, r, MOI.Interval(0.0, 2.0))
-    θ = DOI.add_dynamic_variable(model, t)
+    @variable(model, θ, t)
     MOI.add_constraint(model, θ, MOI.Interval(0.0, π))
-    v_r = DOI.add_dynamic_variable(model, t)
+    @variable(model, v_r, t)
     MOI.add_constraint(model, v_r, MOI.Interval(0.0, 2.0))
-    v_θ = DOI.add_dynamic_variable(model, t)
+    @variable(model, v_θ, t)
     MOI.add_constraint(model, v_θ, MOI.Interval(0.0, 2.0))
-
-    MOI.set(model, DOI.DynamicVariableName(), u1, "u1")
-    MOI.set(model, DOI.DynamicVariableName(), u2, "u2")
-    MOI.set(model, DOI.DynamicVariableName(), r, "r")
-    MOI.set(model, DOI.DynamicVariableName(), θ, "θ")
-    MOI.set(model, DOI.DynamicVariableName(), v_r, "v_r")
-    MOI.set(model, DOI.DynamicVariableName(), v_θ, "v_θ")
 
     ## Boundary Conditions
     MOI.add_constraint(model, DOI.Initial(r), MOI.EqualTo(1.0))
@@ -140,13 +133,5 @@ function orbit_raising(
 
     MOI.optimize!(model)
 
-    # Retrieve solutions
-    u1_sol = MOI.get(model, DOI.DynamicVariableSolution(), u1)
-    u2_sol = MOI.get(model, DOI.DynamicVariableSolution(), u2)
-    r_sol = MOI.get(model, DOI.DynamicVariableSolution(), r)
-    θ_sol = MOI.get(model, DOI.DynamicVariableSolution(), θ)
-    vr_sol = MOI.get(model, DOI.DynamicVariableSolution(), v_r)
-    vθ_sol = MOI.get(model, DOI.DynamicVariableSolution(), v_θ)
-
-    return u1_sol, u2_sol, r_sol, θ_sol, vr_sol, vθ_sol, model
+    return nothing
 end

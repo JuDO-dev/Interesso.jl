@@ -1,6 +1,6 @@
 function bang_bang(
     model::Interesso.Optimizer;
-    starts=nothing
+    starts::AbstractDict{String,<:DOI.AbstractDynamicSolution}=Dict{String,DOI.AbstractDynamicSolution}()
 ) 
 
     @assert MOI.is_empty(model)
@@ -10,12 +10,12 @@ function bang_bang(
     MOI.add_constraint(model, DOI.Initial(t), MOI.EqualTo(0.0))
 
     ## Input Dynamic Variable
-    u = DOI.add_dynamic_variable(model, t)
+    @variable(model, u, t)
     MOI.add_constraint(model, u, MOI.Interval(-2.0, 1.0))
-
+    
     ## State Dynamic Variables
-    x = DOI.add_dynamic_variable(model, t)
-    v = DOI.add_dynamic_variable(model, t)
+    @variable(model, x, t)
+    @variable(model, v, t)
 
     ## Boundary Conditions
     MOI.add_constraint(model, DOI.Initial(x), MOI.EqualTo(0.0))
@@ -23,11 +23,6 @@ function bang_bang(
 
     MOI.add_constraint(model, DOI.Final(x), MOI.EqualTo(300.0))
     MOI.add_constraint(model, DOI.Final(v), MOI.EqualTo(0.0))
-
-    # Starts
-    if !isnothing(starts)
-        Interesso.warmstart!(model, starts)
-    end
 
     ## Differential Equations
 
@@ -54,12 +49,9 @@ function bang_bang(
     obj_fun = DOI.MultiPhaseIntegral([NDF(:+, [10.0], t)])
     MOI.set(model, MOI.ObjectiveFunction{typeof(obj_fun)}(), obj_fun)
 
+    Interesso.warmstart!(model, starts)
+
     MOI.optimize!(model)
 
-    # Retrieve solutions
-    u_sol = MOI.get(model, DOI.DynamicVariableSolution(), u)
-    x_sol = MOI.get(model, DOI.DynamicVariableSolution(), x)
-    v_sol = MOI.get(model, DOI.DynamicVariableSolution(), v)
-
-    return u_sol, x_sol, v_sol, model
+    return nothing
 end

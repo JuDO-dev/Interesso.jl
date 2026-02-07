@@ -18,6 +18,7 @@ include("DOI/optimizer.jl")
 include("DOI/attributes.jl")
 include("DOI/ingredients.jl")
 include("DOI/solutions.jl")
+include("DOI/macro.jl")
 
 include("transcription/dyn_funs.jl")
 include("transcription/bou_funs.jl")
@@ -37,5 +38,6 @@ export AbstractIntervals, AbstractIntervalsMesh, FixedIntervals, FlexibleInterva
 export get_solutions, warmstart!
 export eval_funcs, eval_accuracy, assess_solution
 export perturb_solution, perturb_solutions
+export @variable
 
 end

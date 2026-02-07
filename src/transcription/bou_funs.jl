@@ -544,6 +544,20 @@ end
 
 function transcribe_grad_dyn_least_square(
     model::Optimizer,
+    i::Integer,
+    phase::PHS,
+    mesh::AbstractIntervalsMesh{PM,MM,BM},
+) where {PM,MM<:AbstractIntResMesh,BM}
+
+    grad_res_funcs = Vector{MOI.AbstractFunction}()
+    funcs_dif = transcribe_grad_dif_dyn(model, i, phase, mesh)
+    append!(grad_res_funcs, funcs_dif)
+
+    return grad_res_funcs
+end
+
+function transcribe_grad_dyn_least_square(
+    model::Optimizer,
     phase::PHS,
     mesh::AbstractIntervalsMesh{PM,MM,BM},
 ) where {PM,MM<:AbstractIntResMesh,BM}
@@ -552,8 +566,10 @@ function transcribe_grad_dyn_least_square(
     grad_res_funcs = Vector{MOI.AbstractFunction}()
 
     for i = 1:n_h
-        funcs_dif = transcribe_grad_dif_dyn(model, i, phase, mesh)
-        append!(grad_res_funcs, funcs_dif)
+        append!(
+            grad_res_funcs,
+            transcribe_grad_dyn_least_square(model, i, phase, mesh)
+        )
     end
 
     if model.time_vars[phase] isa VAR

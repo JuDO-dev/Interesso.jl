@@ -77,28 +77,18 @@ function save_solutions!(model::Optimizer)
 end
 
 function get_solutions(model::Optimizer)
-    warm_start = Dict{String, DOI.AbstractDynamicSolution}()
+    solutions = Dict{String, DOI.AbstractDynamicSolution}()
 
     for phase in model.phases
         for dyn_var in model.dyn_vars[phase]
             name = get(model.dyn_var_names, dyn_var, nothing)
             if name !== nothing
-                if name == "t"
-                    error("Avoid setting variables as name t.")
-                end
                 sol = MOI.get(model, DOI.DynamicVariableSolution(), dyn_var)
-                warm_start[name] = sol
+                solutions[name] = sol
             end
         end
-
-        # if model.time_vars[phase] isa VAR
-        #     val = MOI.get(model.inner, MOI.VariablePrimal(), model.time_vars[phase])
-        #     push!(sol_t, val)
-        #     warm_start["t"] = sol_t
-        # end
-
     end
-    return warm_start
+    return solutions
 end
 
 function warmstart!(

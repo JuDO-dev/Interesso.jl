@@ -1,4 +1,7 @@
-function fuller(model::Interesso.Optimizer)
+function fuller(
+    model::Interesso.Optimizer;
+    starts::AbstractDict{String,<:DOI.AbstractDynamicSolution}=Dict{String,DOI.AbstractDynamicSolution}()
+) 
 
     @assert MOI.is_empty(model)
 
@@ -8,12 +11,12 @@ function fuller(model::Interesso.Optimizer)
     MOI.add_constraint(model, DOI.Final(t), MOI.EqualTo(30.0))
 
     ## Input Dynamic Variable
-    u = DOI.add_dynamic_variable(model, t)
+    @variable(model, u, t)
     MOI.add_constraint(model, u, MOI.Interval(-0.1, 0.1))
-
+    
     ## State Dynamic Variables
-    x = DOI.add_dynamic_variable(model, t)
-    v = DOI.add_dynamic_variable(model, t)
+    @variable(model, x, t)
+    @variable(model, v, t)
 
     ## Boundary Conditions
     MOI.add_constraint(model, DOI.Initial(x), MOI.EqualTo(0.0))
@@ -47,12 +50,9 @@ function fuller(model::Interesso.Optimizer)
     obj_fun = DOI.MultiPhaseIntegral([NDF(:^, [x, 2], t)])
     MOI.set(model, MOI.ObjectiveFunction{typeof(obj_fun)}(), obj_fun)
 
+    Interesso.warmstart!(model, starts)
+
     MOI.optimize!(model)
 
-    # Retrieve solutions
-    u_sol = MOI.get(model, DOI.DynamicVariableSolution(), u)
-    x_sol = MOI.get(model, DOI.DynamicVariableSolution(), x)
-    v_sol = MOI.get(model, DOI.DynamicVariableSolution(), v)
-
-    return u_sol, x_sol, v_sol
+    return nothing
 end

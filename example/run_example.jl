@@ -3,7 +3,6 @@ import DynOptInterface as DOI
 using Interesso
 using Plots
 using SLOW
-using Uno
 
 
 const NDF = DOI.NonlinearDynamicFunction
@@ -22,66 +21,61 @@ end
 # include(joinpath(@__DIR__, "..", "example", "double_integrator.jl"))
 # include(joinpath(@__DIR__, "..", "example", "fuller.jl"))
 # include(joinpath(@__DIR__, "..", "example", "hyper_sensitive.jl"))
+# include(joinpath(@__DIR__, "..", "example", "lqr.jl"))
 # include(joinpath(@__DIR__, "..", "example", "orbit_raising.jl"))
 include(joinpath(@__DIR__, "..", "example", "van_der_pol.jl"))
-# include(joinpath(@__DIR__, "..", "example", "vehicle.jl"))
+# include(joinpath(@__DIR__, "..", "example", "vehicle", "vehicle.jl"))
 # include(joinpath(@__DIR__, "..", "example", "vehicle_2.jl"))
+# include(joinpath(@__DIR__, "..", "example", "vehicle", "vehicle_simple.jl"))
 
 optimizer = SLOW.Optimizer()
-# MOI.set(optimizer, MOI.RawOptimizerAttribute("dual"), true)
-MOI.set(optimizer, MOI.RawOptimizerAttribute("ρ0"), 10.0)
-MOI.set(optimizer, MOI.RawOptimizerAttribute("h_norm"), 1)
-MOI.set(optimizer, MOI.RawOptimizerAttribute("max_iter"), 3000)
-MOI.set(optimizer, MOI.RawOptimizerAttribute("max_time"), Inf)
-# MOI.set(optimizer, MOI.RawOptimizerAttribute("scaling"), "none")
-MOI.set(optimizer, MOI.RawOptimizerAttribute("logging"), 2)
+MOI.set(optimizer,
+    "dual"     => true,
+    "ρ0"       => 10,
+    "h_norm"   => 1,
+    "solver"   => "Clarabel",
+    "max_iter" => 3000,
+    "max_time" => Inf,
+    "verbose"  => false,
+    "logging"  => 2,
+)
+
+
 
 model = Interesso.Optimizer(
     inner=optimizer,
-    # inner = Uno.Optimizer(preset="filtersqp"),
-    # default_intervals=FlexibleIntervals(50, 0.01),
-    default_intervals=FixedIntervals(40),
-    default_points=LGRPoints(3),
-    # default_method=Collocation(),
+    # default_intervals=FlexibleIntervals(50, 0.1),
+    default_intervals=FixedIntervals(50),
+    default_points=LGLPoints(3),
+    default_method=Collocation(),
     # default_method=QPM(5;pen_param = 1),
-    # default_method=DAIR(5),
-    default_method=SAIR(7),
-    default_bounds=SampledBounds(9)
+    # default_method=SAIR(5),
+    # default_bounds=SampledBounds(9)
 )
-# u_sol, x_sol, v_sol = cart_pole_im(model)
-u_sol, x_sol, v_sol = van_der_pol(model)
-# u1_sol, u2_sol, r_sol, θ_sol, vr_sol, vθ_sol, model = orbit_raising(model)
-
-# __eval = eval_funcs(model.inner, model.dif_res_funcs)
-# abs__eval = abs.(__eval)
-# println("maximum 1-norm residual gradient")
-# println(maximum(abs__eval))
-# println("average 1-norm residual gradient")
-# println(sum(abs__eval) / length(__eval))
-
-# _eval = eval_funcs(model.inner, model.res_funcs)
-# abs_eval = abs.(_eval)
-# println("maximum 1-norm residual")
-# println(maximum(abs_eval))
-# println("average 1-norm residual")
-# println(sum(abs_eval) / length(_eval))
-
-# x_sol = sol.s
-
-plot(tau -> u_sol(tau), u_sol.initial, u_sol.final)
+# cart_pole(model)
+# hyper_sensitive(model)
+# orbit_raising(model)
+van_der_pol(model)
+# lqr(model)
+# bang_bang(model)
 
 assess_solution(model; q=20)
 
-# ws = perturb_solutions(Interesso.get_solutions(model), 0.01)
+sols = get_solutions(model)
+sol = sols["u"]
+display(plot(tau -> sol(tau), sol.initial, sol.final))
 
-# println(ws)
+# # ws = perturb_solutions(Interesso.get_solutions(model), 0.3)
 
 # model2 = Interesso.Optimizer(
 #     inner=optimizer,
 #     # default_intervals=FlexibleIntervals(50, 0.01),
-#     default_intervals=FixedIntervals(50),
+#     default_intervals=FixedIntervals(40),
 #     default_points=LGRPoints(3),
-#     default_method=DAIR(5),
+#     default_method=Collocation(),
+#     # default_method=QPM(5;pen_param = 1),
+#     # default_method=SAIR(5),
+#     # default_bounds=SampledBounds(9)
 # )
-
-# orbit_raising(model2; starts = ws)
+# cart_pole(model2;starts=sols)
+# # lqr(model2; starts = ws);

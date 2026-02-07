@@ -1,4 +1,7 @@
-function hyper_sensitive(model::Interesso.Optimizer)
+function hyper_sensitive(
+    model::Interesso.Optimizer;
+    starts::AbstractDict{String,<:DOI.AbstractDynamicSolution}=Dict{String,DOI.AbstractDynamicSolution}()
+) 
 
     @assert MOI.is_empty(model)
 
@@ -8,10 +11,10 @@ function hyper_sensitive(model::Interesso.Optimizer)
     MOI.add_constraint(model, DOI.Final(t), MOI.EqualTo(10000.0))
 
     ## Input Dynamic Variable
-    u = DOI.add_dynamic_variable(model, t)
-
+    @variable(model, u, t)
+    
     ## State Dynamic Variables
-    x = DOI.add_dynamic_variable(model, t)
+    @variable(model, x, t)
 
     ## Boundary Conditions
     MOI.add_constraint(model, DOI.Initial(x), MOI.EqualTo(1.0))
@@ -40,11 +43,9 @@ function hyper_sensitive(model::Interesso.Optimizer)
     ])
     MOI.set(model, MOI.ObjectiveFunction{typeof(obj_fun)}(), obj_fun)
 
+    Interesso.warmstart!(model, starts)
+
     MOI.optimize!(model)
 
-    # Retrieve solutions
-    u_sol = MOI.get(model, DOI.DynamicVariableSolution(), u)
-    x_sol = MOI.get(model, DOI.DynamicVariableSolution(), x)
-
-    return u_sol, x_sol
+    return nothing
 end

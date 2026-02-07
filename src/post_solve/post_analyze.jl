@@ -1,4 +1,4 @@
-function assess_solution(model::Optimizer, ; q::Integer=10)
+function assess_solution(model::Optimizer; q::Integer=10)
 
     residual_error = sum(abs, eval_funcs(model.inner, model.res_funcs))
     solution_error = eval_accuracy(model; q=q)

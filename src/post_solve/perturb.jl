@@ -1,9 +1,7 @@
-import DynOptInterface as DOI
-
 function perturb_solution(
-    solution::Interesso.PiecewiseInterpolant,
+    solution::Interesso.PiecewiseInterpolant{I},
     sigma::Real
-)
+) where{I<:Interesso.LagrangeInterpolant}
     perturbed_pieces = [
         Interesso.LagrangeInterpolant(
             piece.initial,
@@ -18,8 +16,8 @@ function perturb_solution(
 end
 
 function perturb_solutions(
-    solutions::Dict{String, DOI.AbstractDynamicSolution},
+    solutions::Dict{String,DOI.AbstractDynamicSolution},
     sigma::Real;
-)
+)::Dict{String,DOI.AbstractDynamicSolution}
     return Dict(name => perturb_solution(sol, sigma) for (name, sol) in solutions)
 end

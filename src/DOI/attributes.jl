@@ -107,3 +107,12 @@ function MOI.set(
     model.phase_bounds[phase] = bounds
     return nothing
 end
+
+
+# Set Inner Optimizer Attributes
+function MOI.set(inner::MOI.ModelLike, attrs::Pair...)
+    for (k, v) in attrs
+        MOI.set(inner, MOI.RawOptimizerAttribute(k), v)
+    end
+    return nothing
+end

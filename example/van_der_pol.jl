@@ -1,4 +1,7 @@
-function van_der_pol(model::Interesso.Optimizer)
+function van_der_pol(
+    model::Interesso.Optimizer;
+    starts::AbstractDict{String,<:DOI.AbstractDynamicSolution}=Dict{String,DOI.AbstractDynamicSolution}()
+) 
 
     @assert MOI.is_empty(model)
 
@@ -8,11 +11,11 @@ function van_der_pol(model::Interesso.Optimizer)
     MOI.add_constraint(model, DOI.Final(t), MOI.EqualTo(4.0))
 
     ## Input Dynamic Variable
-    u = DOI.add_dynamic_variable(model, t)
-
+    @variable(model, u, t)
+    
     ## State Dynamic Variables
-    x = DOI.add_dynamic_variable(model, t)
-    v = DOI.add_dynamic_variable(model, t)
+    @variable(model, x, t)
+    @variable(model, v, t)
 
     ## Inequality constraint
     MOI.add_constraint(model, u, MOI.Interval(-1.0, 1.0))
@@ -51,12 +54,9 @@ function van_der_pol(model::Interesso.Optimizer)
     )
     MOI.set(model, MOI.ObjectiveFunction{typeof(obj_fun)}(), obj_fun)
 
+    Interesso.warmstart!(model, starts)
+
     MOI.optimize!(model)
 
-    ## Retrieve solutions
-    u_sol = MOI.get(model, DOI.DynamicVariableSolution(), u)
-    x_sol = MOI.get(model, DOI.DynamicVariableSolution(), x)
-    v_sol = MOI.get(model, DOI.DynamicVariableSolution(), v)
-
-    return u_sol, x_sol, v_sol
+    return nothing
 end
