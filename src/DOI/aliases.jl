@@ -9,7 +9,6 @@ const EQ64 = MOI.EqualTo{Float64}
 const IV64 = MOI.Interval{Float64}
 const LE64 = MOI.LessThan{Float64}
 const GE64 = MOI.GreaterThan{Float64}
-const EI64 = Union{EQ64,IV64}
 const LC64 = Union{EQ64,IV64,LE64,GE64}
 
 const STARTS = OrderedDict{DYN_VAR,DOI.AbstractDynamicSolution}
@@ -22,8 +21,13 @@ const DIF_CONS = OrderedDict{
 }
 
 const ALG_CONS = OrderedDict{
-    MOI.ConstraintIndex{NDF,EQ64},
-    Tuple{NDF,EQ64},
+    Union{
+        MOI.ConstraintIndex{NDF,EQ64},
+        MOI.ConstraintIndex{NDF,IV64},
+        MOI.ConstraintIndex{NDF,LE64},
+        MOI.ConstraintIndex{NDF,GE64}
+    },
+    Tuple{NDF,LC64},
 }
 
 const BOU_CONS = OrderedDict{
@@ -54,3 +58,6 @@ const MESHES = OrderedDict{PHS,AbstractIntervalsMesh}
 const PHS_VARS = OrderedDict{PHS,Vector{VAR}}
 const TIME_VARS = OrderedDict{PHS,TIME_VAR}
 const DYN_VAR_VARS = OrderedDict{DYN_VAR,Vector{Vector{VAR}}}
+
+const WS{S<:DOI.AbstractDynamicSolution} = OrderedDict{String,S}
+const WSS{S<:DOI.AbstractDynamicSolution} = OrderedDict{PHS,OrderedDict{String,S}}

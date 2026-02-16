@@ -268,7 +268,7 @@ function transcribe_bounds!(
         for (dyn_var, set) in model.dyn_var_bounds[phase]
             vars = model.dyn_var_vars[dyn_var]
             if dyn_var in model.dif_dyn_vars
-                if j != 1
+                if (j != 1) || (i == 1)
                     MOI.add_constraint(model.inner, vars[i][j], set)
                 end
             else
@@ -446,8 +446,8 @@ function transcribe_dif_cons!(
         MOI.add_constraint(
             model.inner,
             f,
-            # MOI.Interval(-1e-4, 1e-4),
-            MOI.EqualTo(0.0)
+            MOI.Interval(-1e-4, 1e-4),
+            # MOI.EqualTo(0.0)
         )
         push!(model.dif_res_funcs, f)
     end

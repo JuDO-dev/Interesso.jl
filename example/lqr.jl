@@ -1,9 +1,9 @@
 function lqr(
     model::Interesso.Optimizer;
-    starts::AbstractDict{String,<:DOI.AbstractDynamicSolution}=Dict{String,DOI.AbstractDynamicSolution}()
+    starts::Interesso.WSS=Interesso.WSS{DOI.AbstractDynamicSolution}()
 )
 
-    # @assert MOI.is_empty(model)
+    # MOI.empty!(model)
     MOI.empty!(model)
 
     ## Time as a phase
@@ -52,7 +52,7 @@ function lqr(
     obj_fun = DOI.MultiPhaseIntegral(
         [
             NDF(:+, [
-                # NDF(:*, [2.0, NDF(:^, [x, 2.0], t)], t),
+                NDF(:*, [2.0, NDF(:^, [x, 2.0], t)], t),
                 NDF(:*, [2.0, NDF(:^, [v, 2.0], t)], t),
                 # NDF(:*, [1.0, NDF(:^, [u, 2.0], t)], t)
             ], t)

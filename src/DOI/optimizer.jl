@@ -9,10 +9,10 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
     # Dynamic Optimization Problem
     name::String
     phases::OrderedSet{PHS}
-    phase_initials::OrderedDict{PHS,EQ64}
+    phase_initials::OrderedDict{PHS,LC64}
     phase_finals::OrderedDict{PHS,LC64}
     dyn_vars::OrderedDict{PHS,OrderedSet{DYN_VAR}}
-    dyn_var_bounds::OrderedDict{PHS,OrderedDict{DYN_VAR,IV64}}
+    dyn_var_bounds::OrderedDict{PHS,OrderedDict{DYN_VAR,LC64}}
     dyn_var_initials::OrderedDict{PHS,OrderedDict{DYN_VAR,LC64}}
     dyn_var_finals::OrderedDict{PHS,OrderedDict{DYN_VAR,LC64}}
     linkages::LINKAGES
@@ -87,10 +87,10 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
             default_bounds,
             "",
             OrderedSet{PHS}(),
-            OrderedDict{PHS,EQ64}(),
+            OrderedDict{PHS,LC64}(),
             OrderedDict{PHS,LC64}(),
             OrderedDict{PHS,OrderedSet{DYN_VAR}}(),
-            OrderedDict{PHS,OrderedDict{DYN_VAR,IV64}}(),
+            OrderedDict{PHS,OrderedDict{DYN_VAR,LC64}}(),
             OrderedDict{PHS,OrderedDict{DYN_VAR,LC64}}(),
             OrderedDict{PHS,OrderedDict{DYN_VAR,LC64}}(),
             LINKAGES(),
@@ -256,7 +256,6 @@ function MOI.optimize!(model::Optimizer)
 
     ## Update Meshes
     for phase in model.phases
-
         update_mesh!(
             model.meshes[phase],
             model.inner,

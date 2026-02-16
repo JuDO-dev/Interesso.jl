@@ -1,7 +1,7 @@
 function perturb_solution(
     solution::Interesso.PiecewiseInterpolant{I},
     sigma::Real
-) where{I<:Interesso.LagrangeInterpolant}
+) where {I<:Interesso.LagrangeInterpolant}
     perturbed_pieces = [
         Interesso.LagrangeInterpolant(
             piece.initial,
@@ -16,8 +16,18 @@ function perturb_solution(
 end
 
 function perturb_solutions(
-    solutions::Dict{String,DOI.AbstractDynamicSolution},
-    sigma::Real;
-)::Dict{String,DOI.AbstractDynamicSolution}
-    return Dict(name => perturb_solution(sol, sigma) for (name, sol) in solutions)
+    solutions::Interesso.WSS{T},
+    sigma::Real,
+)::Interesso.WSS{DOI.AbstractDynamicSolution} where {T<:DOI.AbstractDynamicSolution}
+    out = Interesso.WSS{DOI.AbstractDynamicSolution}()
+
+    for (phase, phase_sols) in solutions
+        out_phase = Interesso.WS{DOI.AbstractDynamicSolution}()
+        for (name, sol) in phase_sols
+            out_phase[name] = perturb_solution(sol, sigma)
+        end
+        out[phase] = out_phase
+    end
+
+    return out
 end

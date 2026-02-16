@@ -1,9 +1,9 @@
 function hyper_sensitive(
     model::Interesso.Optimizer;
-    starts::AbstractDict{String,<:DOI.AbstractDynamicSolution}=Dict{String,DOI.AbstractDynamicSolution}()
+    starts::Interesso.WSS=Interesso.WSS{DOI.AbstractDynamicSolution}()
 ) 
 
-    @assert MOI.is_empty(model)
+    MOI.empty!(model)
 
     ## Time as a phase
     t = DOI.add_phase(model)

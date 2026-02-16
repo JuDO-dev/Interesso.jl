@@ -77,30 +77,34 @@ function save_solutions!(model::Optimizer)
 end
 
 function get_solutions(model::Optimizer)
-    solutions = Dict{String, DOI.AbstractDynamicSolution}()
-
+    solutions = WSS{DOI.AbstractDynamicSolution}()
     for phase in model.phases
+        sols = WS{DOI.AbstractDynamicSolution}()
         for dyn_var in model.dyn_vars[phase]
             name = get(model.dyn_var_names, dyn_var, nothing)
             if name !== nothing
                 sol = MOI.get(model, DOI.DynamicVariableSolution(), dyn_var)
-                solutions[name] = sol
+                sols[name] = sol
             end
         end
+        solutions[phase] = sols
     end
     return solutions
 end
 
 function warmstart!(
     model::Optimizer,
-    starts::AbstractDict{String, T},
+    starts::WSS{T}
 ) where {T<:DOI.AbstractDynamicSolution}
-
     for (dyn_var, name) in model.dyn_var_names
-        sol = get(starts, name, nothing)
-        if !isnothing(sol)
-            phase = DOI.phase_index(dyn_var)
-            model.start_dyn_vars[phase][dyn_var] = starts[name]
+        phase = DOI.phase_index(dyn_var)
+        phase_dict = get(starts, phase, nothing)
+        if phase_dict === nothing
+            continue
+        end
+        sol = get(phase_dict, name, nothing)
+        if sol !== nothing
+            model.start_dyn_vars[phase][dyn_var] = sol
         end
     end
     return nothing

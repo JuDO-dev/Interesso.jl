@@ -1,25 +1,24 @@
-# Problem Constants
-const g = 9.81
-const l = 0.5
-const m_1 = 1.0
-const m_2 = 0.3
-const t_0 = 0.0
-const t_f = 2.0
-const u_max = 20.0
-const r_max = 2.0
-
-
 function cart_pole_im(
     model::Interesso.Optimizer;
-    starts::AbstractDict{String,<:DOI.AbstractDynamicSolution}=Dict{String,DOI.AbstractDynamicSolution}()
+    starts::Interesso.WSS=Interesso.WSS{DOI.AbstractDynamicSolution}()
 ) 
 
-    @assert MOI.is_empty(model)
+    MOI.empty!(model)
 
     ## Time as a phase
     t = DOI.add_phase(model)
-    MOI.add_constraint(model, DOI.Initial(t), MOI.EqualTo(0.0))
-    MOI.add_constraint(model, DOI.Final(t), MOI.EqualTo(2.0))
+    t_0 = 0.0
+    t_f = 2.0
+    MOI.add_constraint(model, DOI.Initial(t), MOI.EqualTo(t_0))
+    MOI.add_constraint(model, DOI.Final(t), MOI.EqualTo(t_f))
+
+    # Problem Constants
+    g = 9.81
+    l = 0.5
+    m_1 = 1.0
+    m_2 = 0.3
+    u_max = 20.0
+    r_max = 2.0
 
     ## Input Dynamic Variable
     @variable(model, u, t)
@@ -44,10 +43,6 @@ function cart_pole_im(
     MOI.add_constraint(model, DOI.Final(θ), MOI.EqualTo(1.0 * pi))
     MOI.add_constraint(model, DOI.Final(v), MOI.EqualTo(0.0))
     MOI.add_constraint(model, DOI.Final(ω), MOI.EqualTo(0.0))
-
-    # Starts
-    MOI.set(model, DOI.DynamicVariableStart(), r, LinearInterpolant(0.0, 1.0))
-    MOI.set(model, DOI.DynamicVariableStart(), θ, LinearInterpolant(0.0, 1.0 * pi))
 
     # override defaults for variables present in `starts`
     Interesso.warmstart!(model, starts)

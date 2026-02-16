@@ -1,17 +1,16 @@
-const t_0 = 0.0
-const t_f = 3.32
-
 function orbit_raising(
     model::Interesso.Optimizer;
-    starts::AbstractDict{String,<:DOI.AbstractDynamicSolution}=Dict{String,DOI.AbstractDynamicSolution}()
+    starts::Interesso.WSS=Interesso.WSS{DOI.AbstractDynamicSolution}()
 ) 
 
-    @assert MOI.is_empty(model)
+    MOI.empty!(model)
 
     ## Time as a phase
     t = DOI.add_phase(model)
-    MOI.add_constraint(model, DOI.Initial(t), MOI.EqualTo(0.0))
-    MOI.add_constraint(model, DOI.Final(t), MOI.EqualTo(3.32))
+    t_0 = 0.0
+    t_f = 3.32
+    MOI.add_constraint(model, DOI.Initial(t), MOI.EqualTo(t_0))
+    MOI.add_constraint(model, DOI.Final(t), MOI.EqualTo(t_f))
 
     ## Input Dynamic Variable
     @variable(model, u1, t)
@@ -120,13 +119,13 @@ function orbit_raising(
     obj_fun = DOI.NonlinearBoundaryFunction(:+, [DOI.Final(r)])
     MOI.set(model, MOI.ObjectiveFunction{typeof(obj_fun)}(), obj_fun)
 
-    if starts == Dict{String,DOI.AbstractDynamicSolution}()
-        MOI.set(model, DOI.DynamicVariableStart(), u1, LinearInterpolant(1.0, 1.0))
-        MOI.set(model, DOI.DynamicVariableStart(), u2, LinearInterpolant(1.0, 1.0))
-        MOI.set(model, DOI.DynamicVariableStart(), r, LinearInterpolant(1.0, 1.0))
-        MOI.set(model, DOI.DynamicVariableStart(), θ, LinearInterpolant(1.0, 1.0))
-        MOI.set(model, DOI.DynamicVariableStart(), v_r, LinearInterpolant(1.0, 1.0))
-        MOI.set(model, DOI.DynamicVariableStart(), v_θ, LinearInterpolant(1.0, 1.0))
+    if starts == Interesso.WSS{DOI.AbstractDynamicSolution}()
+        MOI.set(model, DOI.DynamicVariableStart(), u1, LinearInterpolant(1.0, 1.0, t_0, t_f))
+        MOI.set(model, DOI.DynamicVariableStart(), u2, LinearInterpolant(1.0, 1.0, t_0, t_f))
+        MOI.set(model, DOI.DynamicVariableStart(), r, LinearInterpolant(1.0, 1.0, t_0, t_f))
+        MOI.set(model, DOI.DynamicVariableStart(), θ, LinearInterpolant(1.0, 1.0, t_0, t_f))
+        MOI.set(model, DOI.DynamicVariableStart(), v_r, LinearInterpolant(1.0, 1.0, t_0, t_f))
+        MOI.set(model, DOI.DynamicVariableStart(), v_θ, LinearInterpolant(1.0, 1.0, t_0, t_f))
     else
         Interesso.warmstart!(model, starts)
     end

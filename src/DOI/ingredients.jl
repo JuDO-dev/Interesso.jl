@@ -76,9 +76,9 @@ function DOI.add_phase(model::Optimizer)
     push!(model.phases, phase)
 
     model.dyn_vars[phase]         = OrderedSet{DYN_VAR}()
-    model.dyn_var_bounds[phase]   = OrderedDict{DYN_VAR,IV64}()
-    model.dyn_var_initials[phase] = OrderedDict{DYN_VAR,EI64}()
-    model.dyn_var_finals[phase]   = OrderedDict{DYN_VAR,EI64}()
+    model.dyn_var_bounds[phase]   = OrderedDict{DYN_VAR,LC64}()
+    model.dyn_var_initials[phase] = OrderedDict{DYN_VAR,LC64}()
+    model.dyn_var_finals[phase]   = OrderedDict{DYN_VAR,LC64}()
     model.dif_cons[phase]         = DIF_CONS()
     model.alg_cons[phase]         = ALG_CONS()
     model.start_dyn_vars[phase]   = STARTS()
@@ -102,10 +102,10 @@ end
 
 # Phase boundaries
 
-MOI.supports_constraint(::Optimizer, ::Type{DOI.Initial{PHS}}, ::Type{EQ64}) = true
-MOI.supports_constraint(::Optimizer, ::Type{DOI.Final{PHS}},   ::Type{LC64}) = true
+MOI.supports_constraint(::Optimizer, ::Type{DOI.Initial{PHS}}, ::Type{<:LC64}) = true
+MOI.supports_constraint(::Optimizer, ::Type{DOI.Final{PHS}},   ::Type{<:LC64}) = true
 
-function MOI.add_constraint(model::Optimizer, phase_initial::DOI.Initial{PHS}, set::EQ64)
+function MOI.add_constraint(model::Optimizer, phase_initial::DOI.Initial{PHS}, set::S) where {S<:LC64}
 
     phase = phase_initial.dyn_fun
 
@@ -119,10 +119,10 @@ function MOI.add_constraint(model::Optimizer, phase_initial::DOI.Initial{PHS}, s
 
     model.phase_initials[phase] = set
 
-    return MOI.ConstraintIndex{DOI.Initial{PHS},EQ64}(phase.value)
+    return MOI.ConstraintIndex{DOI.Initial{PHS},S}(phase.value)
 end
 
-function MOI.add_constraint(model::Optimizer, phase_final::DOI.Final{PHS}, set::LC64)
+function MOI.add_constraint(model::Optimizer, phase_final::DOI.Final{PHS}, set::S) where {S<:LC64}
 
     phase = phase_final.dyn_fun
 
@@ -148,7 +148,7 @@ function MOI.add_constraint(model::Optimizer, phase_final::DOI.Final{PHS}, set::
 
     model.phase_finals[phase] = set
 
-    return MOI.ConstraintIndex{DOI.Final{PHS},LC64}(phase.value)
+    return MOI.ConstraintIndex{DOI.Final{PHS},S}(phase.value)
 end
 
 
@@ -181,9 +181,9 @@ end
 
 # Dynamic variable bounds
 
-MOI.supports_constraint(::Optimizer, ::Type{DYN_VAR}, ::Type{<:MOI.AbstractScalarSet}) = true
+MOI.supports_constraint(::Optimizer, ::Type{DYN_VAR}, ::Type{<:LC64}) = true
 
-function MOI.add_constraint(model::Optimizer, dyn_var::DYN_VAR, set::MOI.AbstractScalarSet)
+function MOI.add_constraint(model::Optimizer, dyn_var::DYN_VAR, set::S) where {S<:LC64}
 
     _throw_if_invalid_index(model, dyn_var)
 
@@ -201,10 +201,10 @@ end
 
 # Dynamic variable boundaries
 
-MOI.supports_constraint(::Optimizer, ::DOI.Initial{DYN_VAR}, ::LC64) = true
-MOI.supports_constraint(::Optimizer, ::DOI.Final{DYN_VAR},   ::LC64) = true
+MOI.supports_constraint(::Optimizer, ::DOI.Initial{DYN_VAR}, ::Type{<:LC64}) = true
+MOI.supports_constraint(::Optimizer, ::DOI.Final{DYN_VAR},   ::Type{<:LC64}) = true
 
-function MOI.add_constraint(model::Optimizer, dyn_var_initial::DOI.Initial{DYN_VAR}, set::LC64)
+function MOI.add_constraint(model::Optimizer, dyn_var_initial::DOI.Initial{DYN_VAR}, set::S) where {S<:LC64}
 
     dyn_var = dyn_var_initial.dyn_fun
 
@@ -213,15 +213,15 @@ function MOI.add_constraint(model::Optimizer, dyn_var_initial::DOI.Initial{DYN_V
     phase = DOI.phase_index(dyn_var_initial.dyn_fun)
     
     if haskey(model.dyn_var_initials[phase], dyn_var)
-        throw(MOI.AddConstraintNotAllowed{typeof(dyn_var_initial),EI64}("Initial value already set."))
+        throw(MOI.AddConstraintNotAllowed{typeof(dyn_var_initial),S}("Initial value already set."))
     end
 
     model.dyn_var_initials[phase][dyn_var] = set
 
-    return MOI.ConstraintIndex{DOI.Initial{DYN_VAR},EI64}(dyn_var.value)
+    return MOI.ConstraintIndex{DOI.Initial{DYN_VAR},S}(dyn_var.value)
 end
 
-function MOI.add_constraint(model::Optimizer, dyn_var_final::DOI.Final{DYN_VAR}, set::LC64)
+function MOI.add_constraint(model::Optimizer, dyn_var_final::DOI.Final{DYN_VAR}, set::S) where {S<:LC64}
 
     dyn_var = dyn_var_final.dyn_fun
 
@@ -230,12 +230,12 @@ function MOI.add_constraint(model::Optimizer, dyn_var_final::DOI.Final{DYN_VAR},
     phase = DOI.phase_index(dyn_var_final.dyn_fun)
     
     if haskey(model.dyn_var_finals[phase], dyn_var)
-        throw(MOI.AddConstraintNotAllowed{typeof(dyn_var_final),EI64}("Final value already set."))
+        throw(MOI.AddConstraintNotAllowed{typeof(dyn_var_final),S}("Final value already set."))
     end
 
     model.dyn_var_finals[phase][dyn_var] = set
 
-    return MOI.ConstraintIndex{DOI.Final{DYN_VAR},EI64}(dyn_var.value)
+    return MOI.ConstraintIndex{DOI.Final{DYN_VAR},S}(dyn_var.value)
 end
 
 
@@ -335,7 +335,7 @@ end
 function MOI.supports_constraint(
     ::Optimizer,
     ::DOI.NonlinearDynamicFunction,
-    ::EQ64,
+    ::Type{<:LC64},
 )
     return true
 end
@@ -343,11 +343,11 @@ end
 function MOI.add_constraint(
     model::Optimizer,
     alg_fun::DOI.NonlinearDynamicFunction,
-    set::EQ64,
-)
+    set::S,
+) where {S<:LC64}
     phase = DOI.phase_index(alg_fun)
     _throw_if_invalid_index(model, phase)
-    index = MOI.ConstraintIndex{DOI.NonlinearDynamicFunction,EQ64}(model.last_index_alg_cons + 1)
+    index = MOI.ConstraintIndex{DOI.NonlinearDynamicFunction,S}(model.last_index_alg_cons + 1)
     model.alg_cons[phase][index] = (alg_fun, set)
     model.last_index_alg_cons += 1
     _push_dif_vars!(model, alg_fun)

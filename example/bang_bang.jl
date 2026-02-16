@@ -1,9 +1,9 @@
 function bang_bang(
     model::Interesso.Optimizer;
-    starts::AbstractDict{String,<:DOI.AbstractDynamicSolution}=Dict{String,DOI.AbstractDynamicSolution}()
+    starts::Interesso.WSS=Interesso.WSS{DOI.AbstractDynamicSolution}()
 ) 
 
-    @assert MOI.is_empty(model)
+    MOI.empty!(model)
 
     ## Time as a phase
     t = DOI.add_phase(model)
@@ -46,7 +46,7 @@ function bang_bang(
 
     ## Objective Function
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
-    obj_fun = DOI.MultiPhaseIntegral([NDF(:+, [10.0], t)])
+    obj_fun = DOI.MultiPhaseIntegral([NDF(:+, [1.0], t)])
     MOI.set(model, MOI.ObjectiveFunction{typeof(obj_fun)}(), obj_fun)
 
     Interesso.warmstart!(model, starts)
