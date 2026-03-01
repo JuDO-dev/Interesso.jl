@@ -62,7 +62,5 @@ function lqr(
 
     Interesso.warmstart!(model, starts)
 
-    MOI.optimize!(model)
-
     return nothing
 end

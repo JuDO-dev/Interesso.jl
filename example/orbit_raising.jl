@@ -130,7 +130,5 @@ function orbit_raising(
         Interesso.warmstart!(model, starts)
     end
 
-    MOI.optimize!(model)
-
     return nothing
 end

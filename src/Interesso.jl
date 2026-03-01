@@ -36,6 +36,7 @@ export AbstractMethod, AbstractMethodMesh, AbstractIntRes, AbstractIntResMesh, C
 export AbstractBounds, AbstractBoundsMesh, ExactBounds, SampledBounds, BernsteinBounds
 export AbstractIntervals, AbstractIntervalsMesh, FixedIntervals, FlexibleIntervals
 export get_solutions, warmstart!
+export get_primal, get_dual, get_primal_dual, set_primal_start!, set_dual_start!
 export eval_funcs, eval_accuracy, assess_solution
 export perturb_solution, perturb_solutions
 export @variable

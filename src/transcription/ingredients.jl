@@ -446,8 +446,8 @@ function transcribe_dif_cons!(
         MOI.add_constraint(
             model.inner,
             f,
-            MOI.Interval(-1e-4, 1e-4),
-            # MOI.EqualTo(0.0)
+            # MOI.Interval(-1e-4, 1e-4),
+            MOI.EqualTo(0.0)
         )
         push!(model.dif_res_funcs, f)
     end

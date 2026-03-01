@@ -109,3 +109,74 @@ function warmstart!(
     end
     return nothing
 end
+
+function get_primal(model::Interesso.Optimizer)
+    vars = MOI.get(model.inner, MOI.ListOfVariableIndices())
+    sort!(vars; by = v -> v.value)
+    return MOI.get(model.inner, MOI.VariablePrimal(), vars)
+end
+
+const _NLPBLOCK_DUAL_KEY = (MOI.NLPBlock, Float64)
+
+get_nlpblock_dual(model::Interesso.Optimizer) = Float64.(MOI.get(model.inner, MOI.NLPBlockDual()))
+
+function get_dual(model::Interesso.Optimizer)
+
+    dual = Dict{Tuple{DataType,DataType}, Vector{Float64}}()
+
+    for (F,S) in MOI.get(model.inner, MOI.ListOfConstraintTypesPresent())
+        cons = MOI.get(model.inner, MOI.ListOfConstraintIndices{F,S}())
+        sort!(cons; by = c -> c.value)
+        dual[(F,S)] = Float64.(MOI.get(model.inner, MOI.ConstraintDual(), cons))
+    end
+
+    dual[_NLPBLOCK_DUAL_KEY] = Float64.(MOI.get(model.inner, MOI.NLPBlockDual()))
+
+    return dual
+end
+
+get_primal_dual(model::Interesso.Optimizer) = (get_primal(model), get_dual(model))
+
+function set_primal_start!(model::Interesso.Optimizer, x0::AbstractVector{T}) where {T<:Real}
+    vars = MOI.get(model.inner, MOI.ListOfVariableIndices())
+    sort!(vars; by = v -> v.value)
+
+    @assert length(vars) == length(x0) "Primal length mismatch."
+    for (v, xv) in zip(vars, x0)
+        MOI.set(model.inner, MOI.VariablePrimalStart(), v, Float64(xv))
+    end
+    return nothing
+end
+
+function set_dual_start!(model::Interesso.Optimizer, dual::Dict{Tuple{DataType,DataType},Vector{Float64}})
+    if haskey(dual, _NLPBLOCK_DUAL_KEY)
+        MOI.set(model.inner, MOI.NLPBlockDualStart(), dual[_NLPBLOCK_DUAL_KEY])
+    end
+    for (F,S) in MOI.get(model.inner, MOI.ListOfConstraintTypesPresent())
+        vals = get(dual, (F,S), nothing)
+        vals === nothing && continue
+
+        cons = MOI.get(model.inner, MOI.ListOfConstraintIndices{F,S}())
+        sort!(cons; by = c -> c.value)
+
+        @assert length(cons) == length(vals) "Dual length mismatch for ($F,$S)."
+        for (c, μ0) in zip(cons, vals)
+            MOI.set(model.inner, MOI.ConstraintDualStart(), c, μ0)
+        end
+    end
+    return nothing
+end
+
+function warmstart!(
+    model::Optimizer;
+    primal::Union{Nothing,Vector{Float64}}=nothing,
+    dual::Union{Nothing,Dict{Tuple{DataType,DataType},Vector{Float64}}}=nothing
+)
+    if primal !== nothing
+        set_primal_start!(model, primal)
+    end
+    if dual !== nothing
+        set_dual_start!(model, dual)
+    end
+    return nothing
+end

@@ -56,7 +56,5 @@ function van_der_pol(
 
     Interesso.warmstart!(model, starts)
 
-    MOI.optimize!(model)
-
     return nothing
 end

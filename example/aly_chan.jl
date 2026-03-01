@@ -65,7 +65,5 @@ function aly_chan(
 
     Interesso.warmstart!(model, starts)
 
-    MOI.optimize!(model)
-
     return nothing
 end

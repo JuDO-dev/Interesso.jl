@@ -51,7 +51,5 @@ function bang_bang(
 
     Interesso.warmstart!(model, starts)
 
-    MOI.optimize!(model)
-
     return nothing
 end

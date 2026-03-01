@@ -189,7 +189,11 @@ function MOI.is_empty(model::Optimizer)
         isempty(model.sol_dyn_vars)       && isempty(model.sol_derivatives)
 end
 
-function MOI.optimize!(model::Optimizer)
+function MOI.optimize!(
+    model::Optimizer;
+    primal::Union{Nothing,Vector{Float64}}=nothing,
+    dual::Union{Nothing,Dict{Tuple{DataType,DataType},Vector{Float64}}}=nothing
+)
 
     ## Build Mesh
 
@@ -250,6 +254,9 @@ function MOI.optimize!(model::Optimizer)
     transcribe_linkages!(model, model.meshes)
 
     transcribe_objective!(model, model.meshes)
+
+    ## Apply transcribed-NLP warm start (if provided)
+    warmstart!(model; primal, dual)
 
     ## Optimize
     MOI.optimize!(model.inner)

@@ -118,10 +118,7 @@ function cart_pole(
     ## Objective Function
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
     obj_fun = DOI.MultiPhaseIntegral([NDF(:^, [u, 2], t)])
-
     MOI.set(model, MOI.ObjectiveFunction{typeof(obj_fun)}(), obj_fun)
-
-    MOI.optimize!(model)
 
     return nothing
 end

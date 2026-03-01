@@ -44,9 +44,6 @@ function cart_pole_im(
     MOI.add_constraint(model, DOI.Final(v), MOI.EqualTo(0.0))
     MOI.add_constraint(model, DOI.Final(ω), MOI.EqualTo(0.0))
 
-    # override defaults for variables present in `starts`
-    Interesso.warmstart!(model, starts)
-
     ## Differential Equations
     sinθ = NDF(:sin, [θ], t)
     cosθ = NDF(:cos, [θ], t)
@@ -103,7 +100,7 @@ function cart_pole_im(
     obj_fun = DOI.MultiPhaseIntegral([NDF(:^, [u, 2], t)])
     MOI.set(model, MOI.ObjectiveFunction{typeof(obj_fun)}(), obj_fun)
 
-    MOI.optimize!(model)
+    Interesso.warmstart!(model, starts)
 
     return nothing
 end

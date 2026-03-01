@@ -114,7 +114,5 @@ function two_link_robot_arm(
 
     Interesso.warmstart!(model, starts)
 
-    MOI.optimize!(model)
-
     return nothing
 end

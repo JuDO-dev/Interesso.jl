@@ -45,7 +45,5 @@ function hyper_sensitive(
 
     Interesso.warmstart!(model, starts)
 
-    MOI.optimize!(model)
-
     return nothing
 end
