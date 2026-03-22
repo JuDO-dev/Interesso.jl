@@ -60,7 +60,7 @@ function cart_pole(
     cosθ = NDF(:cos, [θ], t)
 
     num_v = NDF(:+, [
-        NDF(:*, [l*m_2, sinθ, NDF(:^, [ω, 2], t)], t),
+        NDF(:*, [l * m_2, sinθ, NDF(:^, [ω, 2], t)], t),
         u,
         NDF(:*, [m_2 * g, cosθ, sinθ], t)
     ], t)

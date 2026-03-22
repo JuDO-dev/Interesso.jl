@@ -29,16 +29,18 @@ include("transcription/sol_derivative.jl")
 
 include("post_solve/post_analyze.jl")
 include("post_solve/perturb.jl")
+include("post_solve/plot.jl")
 
 export AbstractInterpolant, PiecewiseInterpolant, LagrangeInterpolant
 export AbstractPoints, AbstractPointsMesh, LGRPoints, LGLPoints
 export AbstractMethod, AbstractMethodMesh, AbstractIntRes, AbstractIntResMesh, Collocation, DAIR, QPM, SAIR, SAPM
 export AbstractBounds, AbstractBoundsMesh, ExactBounds, SampledBounds, BernsteinBounds
 export AbstractIntervals, AbstractIntervalsMesh, FixedIntervals, FlexibleIntervals
+export @variable
 export get_solutions, warmstart!
 export get_primal, get_dual, get_primal_dual, set_primal_start!, set_dual_start!
 export eval_funcs, eval_accuracy, assess_solution
 export perturb_solution, perturb_solutions
-export @variable
+export plot
 
 end

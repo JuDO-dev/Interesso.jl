@@ -37,25 +37,25 @@ end
 
 optimizer = SLOW.Optimizer()
 MOI.set(optimizer,
-    "dual"     => true,
+    "dual"     => false,
     "ρ0"       => 10,
     "h_norm"   => 2,
     "γ"        => 1.0,
-    "solver"   => "Clarabel",
-    "max_iter" => 10,
+    "solver"   => "FBstab",
+    "max_iter" => 1000,
     "max_time" => Inf,
     "verbose"  => false,
     "scaling"  => "none",
     "logging"  => 0,
 )
 
-# optimizer = Ipopt.Optimizer()
-# MOI.set(optimizer, "max_iter" => 100_000)
+optimizer = Ipopt.Optimizer()
+MOI.set(optimizer, "max_iter" => 100_000)
 
 model = Interesso.Optimizer(
     inner=optimizer,
     # default_intervals=FlexibleIntervals(10, 0.1),
-    default_intervals=FixedIntervals(10),
+    default_intervals=FixedIntervals(20),
     default_points=LGLPoints(3),
     # default_method=Collocation(),
     default_method=DAIR(5),
@@ -64,14 +64,14 @@ model = Interesso.Optimizer(
     # default_bounds=SampledBounds(9)
 )
 
-@load joinpath(@__DIR__, "../trial/linear_bicycle_sols.jld2") sols
+# @load joinpath(@__DIR__, "../trial/linear_bicycle_sols.jld2") sols
 
-linear_bicycle(model; starts=sols)
+linear_bicycle(model)
+
+# cart_pole(model)
 
 MOI.optimize!(model)
 
 assess_solution(model; q=20)
 
-sols = get_solutions(model)
-sol = sols[model.phases[1]]["u_T"]
-display(plot(tau -> sol(tau), sol.initial, sol.final))
+Interesso.plot(model)
