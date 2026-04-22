@@ -36,6 +36,8 @@ MOI.supports_incremental_interface(::Optimizer) = true
 
 struct DefaultIntervals <: MOI.AbstractOptimizerAttribute end
 
+MOI.supports(model::Optimizer, ::DefaultIntervals) = true
+
 function MOI.set(model::Optimizer, ::DefaultIntervals, intervals::AbstractIntervals)
     model.default_intervals = intervals
     return nothing
@@ -46,6 +48,8 @@ MOI.get(model::Optimizer, ::DefaultIntervals) = model.intervals
 
 struct DefaultMethod <: MOI.AbstractOptimizerAttribute end
 
+MOI.supports(model::Optimizer, ::DefaultMethod) = true
+
 function MOI.set(model::Optimizer, ::DefaultMethod, method::AbstractMethod)
     model.default_method = method
     return nothing
@@ -55,6 +59,8 @@ MOI.get(model::Optimizer, ::DefaultMethod) = model.method
 
 
 struct DefaultBounds <: MOI.AbstractOptimizerAttribute end
+
+MOI.supports(model::Optimizer, ::DefaultBounds) = true
 
 function MOI.set(model::Optimizer, ::DefaultBounds, bounds::AbstractBounds)
     model.default_bounds = bounds
