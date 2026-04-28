@@ -17,10 +17,9 @@ include(joinpath(@__DIR__, "fuller.jl"))
 include(joinpath(@__DIR__, "hyper_sensitive.jl"))
 include(joinpath(@__DIR__, "lqr.jl"))
 include(joinpath(@__DIR__, "orbit_raising.jl"))
+include(joinpath(@__DIR__, "space_shuttle_reentry.jl"))
 include(joinpath(@__DIR__, "two_link_robot_arm.jl"))
 include(joinpath(@__DIR__, "van_der_pol.jl"))
-include(joinpath(@__DIR__, "vehicle/linear_bicycle.jl"))
-include(joinpath(@__DIR__, "vehicle/linear_bicycle_spatial.jl"))
 
 
 const NDF = DOI.NonlinearDynamicFunction
@@ -37,41 +36,55 @@ end
 
 optimizer = SLOW.Optimizer()
 MOI.set(optimizer,
-    "dual"     => false,
+    "dual"     => true,
     "ρ0"       => 10,
     "h_norm"   => 2,
     "γ"        => 1.0,
-    "solver"   => "FBstab",
+    "solver"   => "Clarabel",
     "max_iter" => 1000,
     "max_time" => Inf,
     "verbose"  => false,
     "scaling"  => "none",
-    "logging"  => 0,
+    "logging"  => 2,
 )
 
 optimizer = Ipopt.Optimizer()
-MOI.set(optimizer, "max_iter" => 100_000)
+MOI.set(optimizer, "max_iter" => 1000)
 
 model = Interesso.Optimizer(
     inner=optimizer,
     # default_intervals=FlexibleIntervals(10, 0.1),
-    default_intervals=FixedIntervals(20),
-    default_points=LGLPoints(3),
-    # default_method=Collocation(),
-    default_method=DAIR(5),
-    # default_method=QPM(5;pen_param=10000),
+    default_intervals=FixedIntervals(50),
+    default_points=LGRPoints(3),
+    default_method=Collocation(),
+    # default_method=DAIR(5),
+    # default_method=QPM(5;pen_param=0.0001),
     # default_method=SAIR(5),
     # default_bounds=SampledBounds(9)
 )
 
-# @load joinpath(@__DIR__, "../trial/linear_bicycle_sols.jld2") sols
-
-linear_bicycle(model)
-
-# cart_pole(model)
+space_shuttle_reentry(model)
 
 MOI.optimize!(model)
 
-assess_solution(model; q=20)
+# (_, RR, _, _) = assess_solution(model);
+
+# res = Float64[]
+
+# push!(res, RR)
+
+# map = 1:1
+
+# for i in map
+#     refine!(model)
+#     (_, RR, _, _) = assess_solution(model);
+#     push!(res, RR)
+# end
+
+# map = append!([0], map)
+
+# plt = Plots.plot(map, res)
+
+# savefig(plt, "cart_pole.svg")
 
 Interesso.plot(model)

@@ -81,6 +81,7 @@ function DOI.add_phase(model::Optimizer)
     model.dyn_var_finals[phase]   = OrderedDict{DYN_VAR,LC64}()
     model.dif_cons[phase]         = DIF_CONS()
     model.alg_cons[phase]         = ALG_CONS()
+    model.path_cons[phase]        = PATH_CONS()
     model.start_dyn_vars[phase]   = STARTS()
     model.sol_dyn_vars[phase]     = SOLS{DYN_VAR}()
     model.sol_derivatives[phase]  = SOLS{DOI.Derivative{DYN_VAR}}()
@@ -343,14 +344,28 @@ end
 function MOI.add_constraint(
     model::Optimizer,
     alg_fun::DOI.NonlinearDynamicFunction,
-    set::S,
-) where {S<:LC64}
+    set::EQ64,
+)
     phase = DOI.phase_index(alg_fun)
     _throw_if_invalid_index(model, phase)
-    index = MOI.ConstraintIndex{DOI.NonlinearDynamicFunction,S}(model.last_index_alg_cons + 1)
+    index = MOI.ConstraintIndex{DOI.NonlinearDynamicFunction,EQ64}(model.last_index_alg_cons + 1)
     model.alg_cons[phase][index] = (alg_fun, set)
     model.last_index_alg_cons += 1
     _push_dif_vars!(model, alg_fun)
+    return index
+end
+
+function MOI.add_constraint(
+    model::Optimizer,
+    path_fun::DOI.NonlinearDynamicFunction,
+    set::S,
+) where {S<:Union{IV64,LE64,GE64}}
+    phase = DOI.phase_index(path_fun)
+    _throw_if_invalid_index(model, phase)
+    index = MOI.ConstraintIndex{DOI.NonlinearDynamicFunction,S}(model.last_index_path_cons + 1)
+    model.path_cons[phase][index] = (path_fun, set)
+    model.last_index_path_cons += 1
+    _push_dif_vars!(model, path_fun)
     return index
 end
 

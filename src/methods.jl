@@ -72,11 +72,28 @@ build_method_mesh(::Collocation, mesh::AbstractPointsMesh) = CollocationMesh(mes
 
 abstract type AbstractIntRes <: AbstractMethod end
 
-struct DAIR{T<:AbstractPoints} <: AbstractIntRes
+# DAIR family
+abstract type AbstractDAIR <: AbstractIntRes end
+
+struct DAIR{T<:AbstractPoints} <: AbstractDAIR
     quad_points::T
 end
 
 DAIR(number::Integer) = DAIR(GLPoints(number))
+
+struct DAIRFeas{T<:AbstractPoints} <: AbstractDAIR
+    quad_points::T
+end
+
+DAIRFeas(number::Integer) = DAIRFeas(GLPoints(number))
+DAIRFeas(d::AbstractDAIR) = DAIRFeas(d.quad_points)
+
+struct DAIROpti{T<:AbstractPoints} <: AbstractDAIR
+    quad_points::T
+end
+
+DAIROpti(number::Integer) = DAIROpti(GLPoints(number))
+DAIROpti(d::AbstractDAIR) = DAIROpti(d.quad_points)
 
 struct QPM{T<:AbstractPoints, R<:Real} <: AbstractIntRes
     quad_points::T
@@ -109,22 +126,39 @@ SAPM(number::Integer; pen_param::Real=1.0) = SAPM(GLPoints(number), pen_param)
 abstract type AbstractIntResMesh <: AbstractMethodMesh end
 
 # DAIR
-struct DAIRMesh{P<:AbstractPointsMesh, I<:AbstractInterpolant} <: AbstractIntResMesh
+abstract type AbstractDAIRMesh <: AbstractIntResMesh end
+
+# DAIRFeas
+struct DAIRFeasMesh{P<:AbstractPointsMesh, I<:AbstractInterpolant} <: AbstractDAIRMesh
     quad_points_mesh::P
     interpolant::I
 end
 
-function DAIRMesh(points::DAIR, mesh::AbstractPointsMesh)
-
+function DAIRFeasMesh(points::DAIRFeas, mesh::AbstractPointsMesh)
     quad_mesh = GLPointsMesh(points.quad_points, mesh.t_a, mesh.t_b)
     interpolant = PM_MM_Interpolation(mesh, quad_mesh)
-
-    return DAIRMesh(quad_mesh, interpolant)
+    return DAIRFeasMesh(quad_mesh, interpolant)
 end
 
-mesh_type(::Type{DAIR}) = DAIRMesh
+mesh_type(::Type{DAIRFeas}) = DAIRFeasMesh
 
-build_method_mesh(points::DAIR, mesh::AbstractPointsMesh) = DAIRMesh(points, mesh)
+build_method_mesh(points::DAIRFeas, mesh::AbstractPointsMesh) = DAIRFeasMesh(points, mesh)
+
+# DAIROpti
+struct DAIROptiMesh{P<:AbstractPointsMesh, I<:AbstractInterpolant} <: AbstractDAIRMesh
+    quad_points_mesh::P
+    interpolant::I
+end
+
+function DAIROptiMesh(points::DAIROpti, mesh::AbstractPointsMesh)
+    quad_mesh = GLPointsMesh(points.quad_points, mesh.t_a, mesh.t_b)
+    interpolant = PM_MM_Interpolation(mesh, quad_mesh)
+    return DAIROptiMesh(quad_mesh, interpolant)
+end
+
+mesh_type(::Type{DAIROpti}) = DAIROptiMesh
+
+build_method_mesh(points::DAIROpti, mesh::AbstractPointsMesh) = DAIROptiMesh(points, mesh)
 
 # QPM
 struct QPMMesh{P<:AbstractPointsMesh, I<:AbstractInterpolant, R<:Real} <: AbstractIntResMesh

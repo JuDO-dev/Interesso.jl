@@ -23,6 +23,7 @@ function MOI.supports(model::Optimizer, attr::MOI.ObjectiveSense)
 end
 
 function MOI.set(model::Optimizer, attr::MOI.ObjectiveSense, sense::MOI.OptimizationSense)
+    model.objective_sense = sense
     MOI.set(model.inner, attr, sense)
     return nothing
 end

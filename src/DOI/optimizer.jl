@@ -19,6 +19,7 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
     dif_dyn_vars::OrderedSet{DYN_VAR}
     dif_cons::OrderedDict{PHS,DIF_CONS}
     alg_cons::OrderedDict{PHS,ALG_CONS}
+    path_cons::OrderedDict{PHS,PATH_CONS}
     bou_cons::BOU_CONS
     objective_sense::MOI.OptimizationSense
     objective::Union{OBJ,Nothing}
@@ -27,6 +28,7 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
     last_index_dyn_vars::Int64
     last_index_dif_cons::Int64
     last_index_alg_cons::Int64
+    last_index_path_cons::Int64
     last_index_bou_cons::Int64
     last_index_linkages::Int64
 
@@ -97,6 +99,7 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
             OrderedSet{DYN_VAR}(),
             OrderedDict{PHS,DIF_CONS}(),
             OrderedDict{PHS,ALG_CONS}(),
+            OrderedDict{PHS,PATH_CONS}(),
             BOU_CONS(),
             MOI.FEASIBILITY_SENSE,
             nothing,
@@ -105,6 +108,7 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
             0,
             0,
             0,           
+            0,
             0,
             OrderedDict{PHS,STARTS}(),
             OrderedDict{DYN_VAR,String}(),
@@ -138,6 +142,7 @@ function MOI.empty!(model::Optimizer)
     empty!(model.dif_dyn_vars)
     empty!(model.dif_cons)
     empty!(model.alg_cons)
+    empty!(model.path_cons)
     empty!(model.bou_cons)
     model.objective_sense = MOI.FEASIBILITY_SENSE
     model.objective = nothing
@@ -145,6 +150,7 @@ function MOI.empty!(model::Optimizer)
     model.last_index_dyn_vars = 0
     model.last_index_dif_cons = 0
     model.last_index_alg_cons = 0
+    model.last_index_path_cons = 0
     model.last_index_bou_cons = 0
     model.last_index_linkages = 0
     empty!(model.start_dyn_vars)
@@ -174,7 +180,7 @@ function MOI.is_empty(model::Optimizer)
         isempty(model.dyn_var_initials)   && isempty(model.dyn_var_finals)     &&
         isempty(model.linkages)           && isempty(model.dif_dyn_vars)       &&
         isempty(model.dif_cons)           && isempty(model.alg_cons)           &&
-        isempty(model.bou_cons)           &&
+        isempty(model.path_cons)          && isempty(model.bou_cons)           &&
         model.objective_sense == MOI.FEASIBILITY_SENSE                         &&
         isnothing(model.objective)        &&
         iszero(model.last_index_phases)   && iszero(model.last_index_dyn_vars) &&
@@ -189,11 +195,47 @@ function MOI.is_empty(model::Optimizer)
         isempty(model.sol_dyn_vars)       && isempty(model.sol_derivatives)
 end
 
+function reset!(model::Optimizer)
+    empty!(model.meshes)
+    MOI.empty!(model.inner)
+    empty!(model.phase_vars)
+    empty!(model.time_vars)
+    empty!(model.dyn_var_vars)
+    empty!(model.dif_res_funcs)
+    empty!(model.res_funcs)
+    return nothing
+end
+
 function MOI.optimize!(
     model::Optimizer;
     primal::Union{Nothing,Vector{Float64}}=nothing,
     dual::Union{Nothing,Dict{Tuple{DataType,DataType},Vector{Float64}}}=nothing
 )
+
+    # Two NLPs if DAIR
+    if model.default_method isa DAIR
+
+        ocp_quad = model.default_method
+        ocp_sense = model.objective_sense
+
+        ## Phase 1: Feasibility
+        model.default_method = DAIRFeas(ocp_quad)
+        model.objective_sense = MOI.MIN_SENSE
+
+        MOI.optimize!(model; primal, dual)
+
+        primal = get_primal(model)
+
+        ## Phase 2: Optimality
+        reset!(model)
+
+        model.default_method = DAIROpti(ocp_quad)
+        model.objective_sense = ocp_sense
+
+        MOI.optimize!(model; primal, dual=nothing)
+
+        return nothing
+    end
 
     ## Build Mesh
 
@@ -205,7 +247,7 @@ function MOI.optimize!(
                 error("Please ensure that all phases have a fixed initial value.")
             end
 
-            if haskey(model.phase_finals, phase) && model.phase_finals[phase] isa MOI.EqualTo
+            if haskey(model.phase_finals, phase) && (model.phase_finals[phase] isa MOI.EqualTo)
                 t_0 = model.phase_initials[phase].value
                 t_f = model.phase_finals[phase].value
             else
@@ -245,6 +287,8 @@ function MOI.optimize!(
             transcribe_dif_cons!(model, i, phase, model.meshes[phase])
 
             transcribe_alg_cons!(model, i, phase, model.meshes[phase])
+
+            transcribe_path_cons!(model, i, phase, model.meshes[phase])
             
         end
     end

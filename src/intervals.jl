@@ -34,10 +34,21 @@ struct FixedIntervals <: AbstractIntervals
     number::Int64
     points::Vector{Float64}
 
-    function FixedIntervals(
-        number::Integer;
-        points::Vector{<:Real}=collect(range(0.0, 1.0, number + 1)),
-    )
+    function FixedIntervals(number::Integer)
+        if !(number ≥ 1)
+            throw(DomainError(number, "Please ensure number ≥ 1."))
+        end
+
+        points = collect(range(0.0, 1.0, number + 1))
+
+        _throw_points_mismatch(number, points)
+
+        return new(number, points)
+    end
+
+    function FixedIntervals(points::Vector{<:Real})
+        number = length(points) - 1 
+
         if !(number ≥ 1)
             throw(DomainError(number, "Please ensure number ≥ 1."))
         end
@@ -129,9 +140,28 @@ struct FlexibleIntervals <: AbstractIntervals
 
     function FlexibleIntervals(
         number::Integer,
-        flexibility::Real;
-        points::Vector{Float64}=collect(range(0.0, 1.0, number + 1)),
+        flexibility::Real
     )
+        if !(number ≥ 2)
+            throw(DomainError(number, "Please ensure number ≥ 2."))
+
+        elseif !(0 ≤ flexibility ≤ 1)
+            throw(DomainError(flexibility, "Please ensure 0 ≤ flexibility ≤ 1."))
+        end
+
+        points = collect(range(0.0, 1.0, number + 1))
+
+        _throw_points_mismatch(number, points)
+
+        return new(number, flexibility, points)
+    end
+
+    function FlexibleIntervals(
+        points::Vector{<:Real},
+        flexibility::Real
+    )
+        number = length(points) - 1
+
         if !(number ≥ 2)
             throw(DomainError(number, "Please ensure number ≥ 2."))
 
@@ -180,7 +210,7 @@ function build_intervals_mesh(
     t_f::Real,
 )
     fixed = build_intervals_mesh(
-        FixedIntervals(intervals.number; points=intervals.points),
+        FixedIntervals(intervals.points),
         points,
         method,
         bounds,

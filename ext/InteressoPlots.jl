@@ -95,4 +95,35 @@ function Interesso.plot(model::Interesso.Optimizer)
     return plt
 end
 
+function Interesso.plot_residual!(plt::Plots.Plot, res; label::String="1-norm residual")
+    Plots.plot!(
+        plt,
+        res.domain,
+        res.l1_residual;
+        xlabel = "domain",
+        ylabel = "value",
+        label = label,
+        grid = true,
+    )
+    return plt
+end
+
+function Interesso.plot_residual!(plt::Plots.Plot, model::Interesso.Optimizer; q::Integer=10, label::String="1-norm residual")
+    res = Interesso.residual_map(model; q)
+    return Interesso.plot_residual!(plt, res; label)
+end
+
+function Interesso.plot_residual(res; label::String="1-norm residual")
+    plt = Plots.plot()
+    Interesso.plot_residual!(plt, res; label)
+    Plots.plot!(plt; title = "Residual at interpolated $(res.q) quadrature points")
+    return plt
+end
+
+function Interesso.plot_residual(model::Interesso.Optimizer; q::Integer=10, label::String="1-norm residual")
+    plt = Plots.plot()
+    res = Interesso.residual_map(model; q)
+    return Interesso.plot_residual!(plt, res; label)
+end
+
 end

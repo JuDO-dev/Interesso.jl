@@ -287,6 +287,7 @@ function transcribe_bounds!(
     phase::PHS,
     mesh::AbstractIntervalsMesh{PM,MM,BM},
 ) where {PM<:AbstractLobattoMesh,MM,BM<:ExactBoundsMesh}
+
     n_p_dif = get_points_dif_length(mesh)
     n_p_alg = get_points_alg_length(mesh)
 
@@ -415,9 +416,7 @@ function transcribe_alg_cons!(
                 alg_fun, i, q, model.phase_vars, model.time_vars[phase],
                 model.dyn_var_vars, model.dif_dyn_vars, mesh
             )
-
             MOI.add_constraint(model.inner, alg_con, set)
-            push!(model.res_funcs, alg_con)
         end
     end
     return nothing
@@ -429,7 +428,7 @@ function transcribe_dif_cons!(
     ::Integer,
     ::PHS,
     ::AbstractIntervalsMesh{PM,MM,BM},
-) where {PM,MM<:Union{DAIRMesh,QPMMesh},BM}
+) where {PM,MM<:Union{AbstractDAIRMesh,QPMMesh},BM}
     return nothing
 end
 
@@ -467,15 +466,23 @@ end
 
 # Integrated Residual, transcription of residuals
 function transcribe_alg_cons!(
+    ::Optimizer,
+    ::Integer,
+    ::PHS,
+    ::AbstractIntervalsMesh{PM,MM,BM},
+) where {PM,MM<:Union{DAIRFeasMesh,QPMMesh,SAPMMesh},BM}
+    return nothing
+end
+
+function transcribe_alg_cons!(
     model::Optimizer,
     i::Integer,
     phase::PHS,
     mesh::AbstractIntervalsMesh{PM,MM,BM},
-) where {PM,MM<:Union{DAIRMesh,SAIRMesh},BM}
+) where {PM,MM<:Union{DAIROptiMesh,SAIRMesh},BM}
 
-    ϵ = 1e-4
-    scale = length(model.dif_cons[phase]) + length(model.alg_cons[phase])
-    ϵ *= scale
+    ϵ = 1e-6
+    ϵ /= get_intervals_length(mesh)
     f = transcribe_dyn_least_square(model, i, phase, mesh)
     MOI.add_constraint(
         model.inner,
@@ -487,12 +494,47 @@ function transcribe_alg_cons!(
     return nothing
 end
 
-function transcribe_alg_cons!(
-    ::Optimizer,
-    ::Integer,
-    ::PHS,
-    ::AbstractIntervalsMesh{PM,MM,BM},
-) where {PM,MM<:Union{QPMMesh,SAPMMesh},BM}
+function transcribe_path_cons!(
+    model::Optimizer,
+    i::Integer,
+    phase::PHS,
+    mesh::AbstractIntervalsMesh{PM,MM,BM},
+) where {PM,MM<:CollocationMesh,BM}
+
+    path_cons = model.path_cons[phase]
+    n_p_alg = get_points_alg_length(mesh)
+
+    for q in 1:n_p_alg
+        for (path_fun, set) in values(path_cons)
+            path_con = transcribe_dyn_fun(
+                path_fun, i, q, model.phase_vars, model.time_vars[phase],
+                model.dyn_var_vars, model.dif_dyn_vars, mesh
+            )
+            MOI.add_constraint(model.inner, path_con, set)
+        end
+    end
+    return nothing
+end
+
+function transcribe_path_cons!(
+    model::Optimizer,
+    i::Integer,
+    phase::PHS,
+    mesh::AbstractIntervalsMesh{PM,MM,BM},
+) where {PM,MM<:AbstractDAIRMesh,BM}
+
+    path_cons = model.path_cons[phase]
+    n_p_quad = get_points_quad_length(mesh)
+
+    for q in 1:n_p_quad
+        for (path_fun, set) in values(path_cons)
+            path_con = transcribe_dyn_fun(
+                path_fun, i, q, model.phase_vars, model.time_vars[phase],
+                model.dyn_var_vars, model.dif_dyn_vars, mesh
+            )
+            MOI.add_constraint(model.inner, path_con, set)
+        end
+    end
     return nothing
 end
 

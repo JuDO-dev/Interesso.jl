@@ -21,13 +21,17 @@ const DIF_CONS = OrderedDict{
 }
 
 const ALG_CONS = OrderedDict{
+    MOI.ConstraintIndex{NDF,EQ64},
+    Tuple{NDF,EQ64},
+}
+
+const PATH_CONS = OrderedDict{
     Union{
-        MOI.ConstraintIndex{NDF,EQ64},
         MOI.ConstraintIndex{NDF,IV64},
         MOI.ConstraintIndex{NDF,LE64},
         MOI.ConstraintIndex{NDF,GE64}
     },
-    Tuple{NDF,LC64},
+    Tuple{NDF,Union{IV64,LE64,GE64}},
 }
 
 const BOU_CONS = OrderedDict{

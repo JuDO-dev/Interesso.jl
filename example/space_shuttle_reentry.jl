@@ -53,13 +53,13 @@ function space_shuttle_reentry(
     ## Boundary Conditions
     MOI.add_constraint(model, DOI.Initial(scaled_h), MOI.EqualTo(2.6)) #scaled by 1e5
     MOI.add_constraint(model, DOI.Final(scaled_h),   MOI.EqualTo(0.8)) #scaled by 1e5
-    MOI.add_constraint(model, DOI.Initial(θ), MOI.EqualTo(0.0))
-    MOI.add_constraint(model, DOI.Initial(Φ), MOI.EqualTo(0.0))
+    MOI.add_constraint(model, DOI.Initial(θ),        MOI.EqualTo(0.0))
+    MOI.add_constraint(model, DOI.Initial(Φ),        MOI.EqualTo(0.0))
     MOI.add_constraint(model, DOI.Initial(scaled_v), MOI.EqualTo(2.56)) #scaled by 1e4
     MOI.add_constraint(model, DOI.Final(scaled_v),   MOI.EqualTo(0.25)) #scaled by 1e4
-    MOI.add_constraint(model, DOI.Initial(γ), MOI.EqualTo(deg2rad(-1.0)))
-    MOI.add_constraint(model, DOI.Final(γ),   MOI.EqualTo(deg2rad(-5.0)))
-    MOI.add_constraint(model, DOI.Initial(ψ), MOI.EqualTo(deg2rad(90.0)))
+    MOI.add_constraint(model, DOI.Initial(γ),        MOI.EqualTo(deg2rad(-1.0)))
+    MOI.add_constraint(model, DOI.Final(γ),          MOI.EqualTo(deg2rad(-5.0)))
+    MOI.add_constraint(model, DOI.Initial(ψ),        MOI.EqualTo(deg2rad(90.0)))
 
     ## Intermediate expressions (reused across dynamics)
     h = NDF(:*, [scaled_h, 1e5], t)
@@ -159,14 +159,14 @@ function space_shuttle_reentry(
 
     ## Warm-starts
     if starts == Interesso.WSS{DOI.AbstractDynamicSolution}()
-        MOI.set(model, DOI.DynamicVariableStart(), scaled_h, LinearInterpolant(2.6,           0.8,          t_0, t_f_max))
-        MOI.set(model, DOI.DynamicVariableStart(), θ,        LinearInterpolant(0.0,            deg2rad(45.0),  t_0, t_f_max))
-        MOI.set(model, DOI.DynamicVariableStart(), Φ,        LinearInterpolant(0.0,            deg2rad(50.0),  t_0, t_f_max))
-        MOI.set(model, DOI.DynamicVariableStart(), scaled_v, LinearInterpolant(2.56,           0.25,         t_0, t_f_max))
-        MOI.set(model, DOI.DynamicVariableStart(), γ, LinearInterpolant(deg2rad(-1.0),  deg2rad(-5.0),  t_0, t_f_max))
-        MOI.set(model, DOI.DynamicVariableStart(), ψ, LinearInterpolant(deg2rad(90.0),  deg2rad(-20.0), t_0, t_f_max))
-        MOI.set(model, DOI.DynamicVariableStart(), α, LinearInterpolant(0.0,            0.0,            t_0, t_f_max))
-        MOI.set(model, DOI.DynamicVariableStart(), β, LinearInterpolant(0.0,            0.0,            t_0, t_f_max))
+        MOI.set(model, DOI.DynamicVariableStart(), scaled_h, LinearInterpolant(2.6,            0.8,            0.0, 1.0))
+        MOI.set(model, DOI.DynamicVariableStart(), θ,        LinearInterpolant(0.0,            deg2rad(45.0),  0.0, 1.0))
+        MOI.set(model, DOI.DynamicVariableStart(), Φ,        LinearInterpolant(0.0,            deg2rad(50.0),  0.0, 1.0))
+        MOI.set(model, DOI.DynamicVariableStart(), scaled_v, LinearInterpolant(2.56,           0.25,           0.0, 1.0))
+        MOI.set(model, DOI.DynamicVariableStart(), γ,        LinearInterpolant(deg2rad(-1.0),  deg2rad(-5.0),  0.0, 1.0))
+        MOI.set(model, DOI.DynamicVariableStart(), ψ,        LinearInterpolant(deg2rad(90.0),  deg2rad(-20.0), 0.0, 1.0))
+        MOI.set(model, DOI.DynamicVariableStart(), α,        LinearInterpolant(0.0,            0.0,            0.0, 1.0))
+        MOI.set(model, DOI.DynamicVariableStart(), β,        LinearInterpolant(0.0,            0.0,            0.0, 1.0))
     else
         Interesso.warmstart!(model, starts)
     end

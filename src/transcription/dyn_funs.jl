@@ -81,6 +81,21 @@ function transcribe_dyn_fun(
     return (0.5 * t_a + 0.5 * t_b) + (0.5 * t_b - 0.5 * t_a) * mesh.method_mesh.quad_points_mesh.points_alg[q]
 end
 
+# AbstractInterpolant (fixed mesh only)
+function transcribe_dyn_fun(
+    p::T,
+    i::Integer,
+    q::Integer,
+    ::PHS_VARS,
+    ::TIME_VAR,
+    ::DYN_VAR_VARS,
+    ::AbstractSet{DYN_VAR},
+    mesh::FixedIntervalsMesh,
+) where {T<:AbstractInterpolant}
+    s_val = mesh.method_meshes[i].quad_points_mesh.points_alg[q]
+    return p(s_val)
+end
+
 # Dynamic Variable
 function transcribe_dyn_fun(
     dyn_var::DYN_VAR,

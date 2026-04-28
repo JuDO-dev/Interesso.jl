@@ -4,7 +4,7 @@
 Interesso/DOI formulation of a constant-curvature vehicle minimum-time problem.
 
 State (dynamic variables):
-  s      distance along reference [m]
+  t      time [s]
   e_y    lateral deviation from reference [m]
   v_x    body-frame longitudinal speed [m/s]
   v_y    body-frame lateral speed [m/s]
@@ -25,41 +25,49 @@ Slip variables are enforced through algebraic equalities (no divisions).
 include(joinpath(@__DIR__, "vehicle_param.jl"))
 
 function linear_bicycle(
-    model::Interesso.Optimizer;
+    model::Interesso.Optimizer,
+    trackfile::String;
     starts::Interesso.WSS = Interesso.WSS{DOI.AbstractDynamicSolution}(),
 )
 
     MOI.empty!(model)
 
     param = VehicleParams()
+
+    # Track splines
+    sref, _, _, _, κref, nlref, nrref, _ = getTrack(trackfile)
+    κ_c = CubicInterpolant(sref, κref)
+    n_l = CubicInterpolant(sref, nlref)
+    n_r = CubicInterpolant(sref, nrref)
+
     # -----------------------------
     # Phase (time)
     # -----------------------------
-    t = DOI.add_phase(model)
-    t_0 = 0.0
-    t_f = 5.0
-    MOI.add_constraint(model, DOI.Initial(t), MOI.EqualTo(t_0))
-    MOI.add_constraint(model, DOI.Final(t), MOI.EqualTo(t_f))
+    s = DOI.add_phase(model)
+    s_0 = sref[1]
+    s_f = sref[end]
+    MOI.add_constraint(model, DOI.Initial(s), MOI.EqualTo(s_0))
+    MOI.add_constraint(model, DOI.Final(s), MOI.EqualTo(s_f))
 
     # -----------------------------
     # Controls / algebraic variables
     # -----------------------------
-    @variable(model, δ, t)
+    @variable(model, δ, s)
     MOI.add_constraint(model, δ, MOI.Interval(-π / 6, π / 6))
 
-    @variable(model, u_T, t) # throttle
+    @variable(model, u_T, s) # throttle
     MOI.add_constraint(model, u_T, MOI.Interval(0.0, 1.0))
 
-    @variable(model, u_B, t) # brake
+    @variable(model, u_B, s) # brake
     MOI.add_constraint(model, u_B, MOI.Interval(0.0, 1.0))
 
     # No simultaneous throttle + brake
-    MOI.add_constraint(model, NDF(:*, [u_T, u_B], t), MOI.EqualTo(0.0))
+    # MOI.add_constraint(model, NDF(:*, [u_T, u_B], s), MOI.EqualTo(0.0))
 
-    @variable(model, κ_fx, t)
-    @variable(model, κ_rx, t)
-    @variable(model, κ_fy, t)
-    @variable(model, κ_ry, t)
+    @variable(model, κ_fx, s)
+    @variable(model, κ_rx, s)
+    @variable(model, κ_fy, s)
+    @variable(model, κ_ry, s)
 
     κ_lim = 1.0
     MOI.add_constraint(model, κ_fx, MOI.Interval(-κ_lim, κ_lim))
@@ -70,22 +78,22 @@ function linear_bicycle(
     # -----------------------------
     # States
     # -----------------------------
-    @variable(model, s, t)
+    @variable(model, t, s)
 
-    @variable(model, e_y, t)
+    @variable(model, e_y, s)
 
-    @variable(model, v_x, t)
+    @variable(model, v_x, s)
 
-    @variable(model, v_y, t)
+    @variable(model, v_y, s)
 
-    @variable(model, ξ, t)
+    @variable(model, ξ, s)
 
-    @variable(model, dψ, t)
+    @variable(model, dψ, s)
 
-    @variable(model, ω_f, t)
+    @variable(model, ω_f, s)
     MOI.add_constraint(model, ω_f, MOI.GreaterThan(0.0))
 
-    @variable(model, ω_r, t)
+    @variable(model, ω_r, s)
     MOI.add_constraint(model, ω_r, MOI.GreaterThan(0.0))
 
     # -----------------------------
@@ -93,36 +101,39 @@ function linear_bicycle(
     # -----------------------------
     vxi = 5.0
     scale = 0.5 * (param.J_wf + param.J_wr) / param.J_zz
-    MOI.add_constraint(model, DOI.Initial(s), MOI.EqualTo(0.0))
+    MOI.add_constraint(model, DOI.Initial(t), MOI.EqualTo(0.0))
     MOI.add_constraint(model, DOI.Initial(v_x), MOI.EqualTo(vxi))
     MOI.add_constraint(model, DOI.Initial(v_y), MOI.EqualTo(0.0))
     MOI.add_constraint(model, DOI.Initial(dψ), MOI.EqualTo(0.0))
     MOI.add_constraint(model, DOI.Initial(ω_f), MOI.EqualTo(vxi * scale / param.R_e))
     MOI.add_constraint(model, DOI.Initial(ω_r), MOI.EqualTo(vxi * scale / param.R_e))
 
+    MOI.add_constraint(model, NDF(:-, [n_l, e_y], s), MOI.GreaterThan(0.0))
+    MOI.add_constraint(model, NDF(:+, [n_r, e_y], s), MOI.GreaterThan(0.0))
+
     # -----------------------------
     # Common nonlinear expressions
     # -----------------------------
-    cosδ = NDF(:cos, [δ], t)
-    sinδ = NDF(:sin, [δ], t)
-    cosξ = NDF(:cos, [ξ], t)
-    sinξ = NDF(:sin, [ξ], t)
+    cosδ = NDF(:cos, [δ], s)
+    sinδ = NDF(:sin, [δ], s)
+    cosξ = NDF(:cos, [ξ], s)
+    sinξ = NDF(:sin, [ξ], s)
 
-    vx2 = NDF(:^, [v_x, 2.0], t)
+    vx2 = NDF(:^, [v_x, 2.0], s)
 
     # Aero and normal loads
-    F_d  = NDF(:*, [param.kFd,  vx2], t)
-    F_lf = NDF(:*, [param.kFlf, vx2], t)
-    F_lr = NDF(:*, [param.kFlr, vx2], t)
+    F_d  = NDF(:*, [param.kFd,  vx2], s)
+    F_lf = NDF(:*, [param.kFlf, vx2], s)
+    F_lr = NDF(:*, [param.kFlr, vx2], s)
 
-    F_zf = NDF(:+, [param.kWf, F_lf], t)
-    F_zr = NDF(:+, [param.kWr, F_lr], t)
+    F_zf = NDF(:+, [param.kWf, F_lf], s)
+    F_zr = NDF(:+, [param.kWr, F_lr], s)
 
     # Contact patch velocities
-    v_yf = NDF(:+, [v_y, NDF(:*, [param.l_f, dψ], t)], t)
-    v_yr = NDF(:-, [v_y, NDF(:*, [param.l_r, dψ], t)], t)
-    v_fx = NDF(:+, [NDF(:*, [v_x, cosδ], t), NDF(:*, [v_yf, sinδ], t)], t)
-    v_fy = NDF(:+, [NDF(:*, [-1.0, NDF(:*, [v_x, sinδ], t)], t), NDF(:*, [v_yf, cosδ], t)], t)
+    v_yf = NDF(:+, [v_y, NDF(:*, [param.l_f, dψ], s)], s)
+    v_yr = NDF(:-, [v_y, NDF(:*, [param.l_r, dψ], s)], s)
+    v_fx = NDF(:+, [NDF(:*, [v_x, cosδ], s), NDF(:*, [v_yf, sinδ], s)], s)
+    v_fy = NDF(:+, [NDF(:*, [-1.0, NDF(:*, [v_x, sinδ], s)], s), NDF(:*, [v_yf, cosδ], s)], s)
 
     # -----------------------------
     # Algebraic (path equality) constraints: slip definitions
@@ -130,101 +141,113 @@ function linear_bicycle(
     # -----------------------------
     MOI.add_constraint(
         model,
-        NDF(:-, [NDF(:*, [NDF(:+, [κ_fx, 1.0], t), v_fx], t), NDF(:*, [(param.R_e / scale), ω_f], t)], t),
+        NDF(:-, [NDF(:*, [NDF(:+, [κ_fx, 1.0], s), v_fx], s), NDF(:*, [(param.R_e / scale), ω_f], s)], s),
         MOI.EqualTo(0.0),
     )
 
     MOI.add_constraint(
         model,
-        NDF(:-, [NDF(:*, [NDF(:+, [κ_rx, 1.0], t), v_x], t), NDF(:*, [(param.R_e / scale), ω_r], t)], t),
+        NDF(:-, [NDF(:*, [NDF(:+, [κ_rx, 1.0], s), v_x], s), NDF(:*, [(param.R_e / scale), ω_r], s)], s),
         MOI.EqualTo(0.0),
     )
 
     MOI.add_constraint(
         model,
-        NDF(:+, [NDF(:*, [κ_fy, v_fx], t), v_fy], t),
+        NDF(:+, [NDF(:*, [κ_fy, v_fx], s), v_fy], s),
         MOI.EqualTo(0.0),
     )
 
     MOI.add_constraint(
         model,
-        NDF(:+, [NDF(:*, [κ_ry, v_x], t), v_yr], t),
+        NDF(:+, [NDF(:*, [κ_ry, v_x], s), v_yr], s),
         MOI.EqualTo(0.0),
     )
 
-    F_xf = NDF(:*, [F_zf, 20.0, κ_fx], t)
-    F_xr = NDF(:*, [F_zr, 20.0, κ_rx], t)
-    F_yf = NDF(:*, [F_zf, 15.0, κ_fy], t)
-    F_yr = NDF(:*, [F_zr, 15.0, κ_ry], t)
+    F_xf = NDF(:*, [F_zf, 20.0, κ_fx], s)
+    F_xr = NDF(:*, [F_zr, 20.0, κ_rx], s)
+    F_yf = NDF(:*, [F_zf, 15.0, κ_fy], s)
+    F_yr = NDF(:*, [F_zr, 15.0, κ_ry], s)
 
     # -----------------------------
     # Differential equations
     # -----------------------------
-    s_denom = NDF(:-, [1.0, NDF(:*, [param.κ_c, e_y], t)], t)
-    s_nom = NDF(:-, [NDF(:*, [v_x, cosξ], t), NDF(:*, [v_y, sinξ], t)], t)
-    ds = NDF(:/, [s_nom, s_denom], t)
+    t_nom = NDF(:-, [1.0, NDF(:*, [κ_c, e_y], s)], s)
+    t_denom = NDF(:-, [NDF(:*, [v_x, cosξ], s), NDF(:*, [v_y, sinξ], s)], s)
+    dt = NDF(:/, [t_nom, t_denom], s)
 
-    de = NDF(:+, [NDF(:*, [v_x, sinξ], t), NDF(:*, [v_y, cosξ], t)], t)
-    dξ = NDF(:-, [dψ, NDF(:*, [param.κ_c, ds], t)], t)
+    # MOI.add_constraint(model, t_nom,   MOI.GreaterThan(0.0))
+    # MOI.add_constraint(model, t_denom, MOI.GreaterThan(0.0))
 
-    Fxf_cosδ = NDF(:*, [F_xf, cosδ], t)
-    Fyf_sinδ = NDF(:*, [F_yf, sinδ], t)
-    Fxf_sinδ = NDF(:*, [F_xf, sinδ], t)
-    Fyf_cosδ = NDF(:*, [F_yf, cosδ], t)
+    de = NDF(:*, [NDF(:+, [NDF(:*, [v_x, sinξ], s), NDF(:*, [v_y, cosξ], s)], s), dt], s)
+    dξ = NDF(:-, [NDF(:*, [dψ, dt], s), κ_c], s)
 
-    # v_y*dψ + (F_xf*cosδ + F_xr - F_yf*sinδ - F_d)/m
-    dv_x = NDF(:+, [
-        NDF(:*, [
-            NDF(:-, [
-                NDF(:+, [Fxf_cosδ, F_xr], t),
-                NDF(:+, [Fyf_sinδ, F_d], t)
-            ], t),
-            (1.0 / param.m),
-        ], t),
-        NDF(:*, [v_y, dψ], t)
-    ], t)
+    Fxf_cosδ = NDF(:*, [F_xf, cosδ], s)
+    Fyf_sinδ = NDF(:*, [F_yf, sinδ], s)
+    Fxf_sinδ = NDF(:*, [F_xf, sinδ], s)
+    Fyf_cosδ = NDF(:*, [F_yf, cosδ], s)
 
-    # -v_x*dψ + (F_xf*sinδ + F_yf*cosδ + F_yr)/m
-    dv_y = NDF(:-, [
-        NDF(:*, [
-            NDF(:+, [Fxf_sinδ, Fyf_cosδ, F_yr], t),
-            (1.0 / param.m),
-        ], t),
-        NDF(:*, [v_x, dψ], t)
-    ], t)
+    # (v_y*dψ + (F_xf*cosδ + F_xr - F_yf*sinδ - F_d)/m) * dt
+    dv_x = NDF(:*, [
+        NDF(:+, [
+            NDF(:*, [
+                NDF(:-, [
+                    NDF(:+, [Fxf_cosδ, F_xr], s),
+                    NDF(:+, [Fyf_sinδ, F_d], s)
+                ], s),
+                (1.0 / param.m)
+            ], s),
+            NDF(:*, [v_y, dψ], s)
+        ], s),
+        dt
+    ], s)
 
-    # ((F_xf*sinδ + F_yf*cosδ)*l_f - F_yr*l_r)/J_zz
+    # (-v_x*dψ + (F_xf*sinδ + F_yf*cosδ + F_yr)/m) * dt
+    dv_y = NDF(:*, [
+        NDF(:-, [
+            NDF(:*, [
+                NDF(:+, [Fxf_sinδ, Fyf_cosδ, F_yr], s),
+                (1.0 / param.m)
+            ], s),
+            NDF(:*, [v_x, dψ], s)
+        ], s),
+        dt
+    ], s)
+
+    # ((F_xf*sinδ + F_yf*cosδ)*l_f - F_yr*l_r)/J_zz * dt
     ddψ = NDF(:*, [
         NDF(:-, [
-            NDF(:*, [NDF(:+, [Fxf_sinδ, Fyf_cosδ], t), param.l_f], t),
-            NDF(:*, [F_yr, param.l_r], t),
-        ], t),
-        (1.0 / param.J_zz)
-    ], t)
+            NDF(:*, [NDF(:+, [Fxf_sinδ, Fyf_cosδ], s), param.l_f], s),
+            NDF(:*, [F_yr, param.l_r], s),
+        ], s),
+        (1.0 / param.J_zz),
+        dt
+    ], s)
 
-    # (-F_xf*R_e - u_B*B_b*B_kf)/J_wf
+    # (-F_xf*R_e - u_B*B_b*B_kf)/J_wf * dt
     dω_f = NDF(:*, [
         NDF(:-, [
-            NDF(:-, [NDF(:*, [F_xf, param.R_e], t)], t),
-            NDF(:*, [u_B, NDF(:*, [param.B_b, param.B_kf], t)], t),
-        ], t),
-        (scale / param.J_wf)
-    ], t)
+            NDF(:-, [NDF(:*, [F_xf, param.R_e], s)], s),
+            NDF(:*, [u_B, NDF(:*, [param.B_b, param.B_kf], s)], s),
+        ], s),
+        (scale / param.J_wf),
+        dt
+    ], s)
 
-    # (-F_xr*R_e + u_T*T_e*τ_g - u_B*(1-B_b)*B_kr)/J_wr
+    # (-F_xr*R_e + u_T*T_e*τ_g - u_B*(1-B_b)*B_kr)/J_wr * dt
     dω_r = NDF(:*, [
         NDF(:-, [
             NDF(:-, [
-                NDF(:*, [u_T, (param.T_e * param.τ_g)], t),
-                NDF(:*, [F_xr, param.R_e], t),
-            ], t),
-            NDF(:*, [u_B, ((1.0 - param.B_b) * param.B_kr)], t),
-        ], t),
-        (scale / param.J_wr)
-    ], t)
+                NDF(:*, [u_T, (param.T_e * param.τ_g)], s),
+                NDF(:*, [F_xr, param.R_e], s),
+            ], s),
+            NDF(:*, [u_B, ((1.0 - param.B_b) * param.B_kr)], s),
+        ], s),
+        (scale / param.J_wr),
+        dt
+    ], s)
 
     # Dynamics
-    MOI.add_constraint(model, DOI.ExplicitDifferentialFunction(s,   ds),   MOI.EqualTo(0.0))
+    MOI.add_constraint(model, DOI.ExplicitDifferentialFunction(t,   dt),   MOI.EqualTo(0.0))
     MOI.add_constraint(model, DOI.ExplicitDifferentialFunction(e_y, de),   MOI.EqualTo(0.0))
     MOI.add_constraint(model, DOI.ExplicitDifferentialFunction(v_x, dv_x), MOI.EqualTo(0.0))
     MOI.add_constraint(model, DOI.ExplicitDifferentialFunction(v_y, dv_y), MOI.EqualTo(0.0))
@@ -236,33 +259,34 @@ function linear_bicycle(
     # -----------------------------
     # Objective: minimum final time
     # -----------------------------
-    MOI.set(model, MOI.ObjectiveSense(), MOI.MAX_SENSE)
-    obj_fun = DOI.NonlinearBoundaryFunction(:+, [DOI.Final(s)])
-    # obj_fun = DOI.MultiPhaseIntegral([NDF(:+, [s], t)])
+    MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+    obj_fun = DOI.NonlinearBoundaryFunction(:+, [DOI.Final(t)])
+    # obj_fun = DOI.MultiPhaseIntegral([NDF(:+, [t], s)])
     MOI.set(model, MOI.ObjectiveFunction{typeof(obj_fun)}(), obj_fun)
 
     # -----------------------------
     # Warm start (simple defaults)
     # -----------------------------
     if starts == Interesso.WSS{DOI.AbstractDynamicSolution}()
-        MOI.set(model, DOI.DynamicVariableStart(), s,   LinearInterpolant(0.0, 300.0, t_0, t_f))
-        MOI.set(model, DOI.DynamicVariableStart(), e_y, LinearInterpolant(0.0, 0.0,  t_0, t_f))
-        MOI.set(model, DOI.DynamicVariableStart(), v_x, LinearInterpolant(vxi, 100.0, t_0, t_f))
-        MOI.set(model, DOI.DynamicVariableStart(), v_y, LinearInterpolant(0.0, 0.0,  t_0, t_f))
-        MOI.set(model, DOI.DynamicVariableStart(), ξ,   LinearInterpolant(0.0, 0.0,  t_0, t_f))
-        MOI.set(model, DOI.DynamicVariableStart(), dψ,  LinearInterpolant(0.0, 0.0,  t_0, t_f))
-        MOI.set(model, DOI.DynamicVariableStart(), ω_f, LinearInterpolant(vxi * scale / param.R_e, 100.0 * scale / param.R_e, t_0, t_f))
-        MOI.set(model, DOI.DynamicVariableStart(), ω_r, LinearInterpolant(vxi * scale / param.R_e, 100.0 * scale / param.R_e, t_0, t_f))
+        MOI.set(model, DOI.DynamicVariableStart(), t,   LinearInterpolant(0.0, 10.0,   s_0, s_f))
+        MOI.set(model, DOI.DynamicVariableStart(), e_y, LinearInterpolant(0.0, 0.0,   s_0, s_f))
+        MOI.set(model, DOI.DynamicVariableStart(), v_x, LinearInterpolant(vxi, 50.0, s_0, s_f))
+        MOI.set(model, DOI.DynamicVariableStart(), v_y, LinearInterpolant(0.0, 0.0,   s_0, s_f))
+        MOI.set(model, DOI.DynamicVariableStart(), ξ,   LinearInterpolant(0.0, 0.0,   s_0, s_f))
+        MOI.set(model, DOI.DynamicVariableStart(), dψ,  LinearInterpolant(0.0, 0.0,   s_0, s_f))
+        MOI.set(model, DOI.DynamicVariableStart(), ω_f, LinearInterpolant(vxi * scale / param.R_e, 100.0 * scale / param.R_e, s_0, s_f))
+        MOI.set(model, DOI.DynamicVariableStart(), ω_r, LinearInterpolant(vxi * scale / param.R_e, 100.0 * scale / param.R_e, s_0, s_f))
 
-        # MOI.set(model, DOI.DynamicVariableStart(), δ,    LinearInterpolant(0.0, 0.0, t_0, t_f))
-        # MOI.set(model, DOI.DynamicVariableStart(), u_T,  LinearInterpolant(1.0, 1.0, t_0, t_f))
-        # MOI.set(model, DOI.DynamicVariableStart(), u_B,  LinearInterpolant(0.0, 0.0, t_0, t_f))
-        MOI.set(model, DOI.DynamicVariableStart(), κ_fx, LinearInterpolant(0.0, 0.0, t_0, t_f))
-        MOI.set(model, DOI.DynamicVariableStart(), κ_rx, LinearInterpolant(0.0, 0.0, t_0, t_f))
-        MOI.set(model, DOI.DynamicVariableStart(), κ_fy, LinearInterpolant(0.0, 0.0, t_0, t_f))
-        MOI.set(model, DOI.DynamicVariableStart(), κ_ry, LinearInterpolant(0.0, 0.0, t_0, t_f))
+        # MOI.set(model, DOI.DynamicVariableStart(), δ,    LinearInterpolant(0.0, 0.0, s_0, s_f))
+        # MOI.set(model, DOI.DynamicVariableStart(), u_T,  LinearInterpolant(1.0, 1.0, s_0, s_f))
+        # MOI.set(model, DOI.DynamicVariableStart(), u_B,  LinearInterpolant(0.0, 0.0, s_0, s_f))
+        MOI.set(model, DOI.DynamicVariableStart(), κ_fx, LinearInterpolant(0.0, 0.0, s_0, s_f))
+        MOI.set(model, DOI.DynamicVariableStart(), κ_rx, LinearInterpolant(0.0, 0.0, s_0, s_f))
+        MOI.set(model, DOI.DynamicVariableStart(), κ_fy, LinearInterpolant(0.0, 0.0, s_0, s_f))
+        MOI.set(model, DOI.DynamicVariableStart(), κ_ry, LinearInterpolant(0.0, 0.0, s_0, s_f))
     else
         Interesso.warmstart!(model, starts)
+        MOI.set(model, DOI.DynamicVariableStart(), t,   LinearInterpolant(0.1, 5.0, s_0, s_f))
     end
 
     return nothing
