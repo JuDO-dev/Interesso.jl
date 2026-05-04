@@ -317,10 +317,19 @@ function MOI.add_constraint(
     dif_fun::DIF_FUN,
     set::EQ64,
 )
+    return MOI.add_constraint(model, dif_fun, set, 1.0)
+end
+
+function MOI.add_constraint(
+    model::Optimizer,
+    dif_fun::DIF_FUN,
+    set::EQ64,
+    scaling::Real,
+)
     phase = DOI.phase_index(dif_fun)
     _throw_if_invalid_index(model, phase)
     index = MOI.ConstraintIndex{DIF_FUN,EQ64}(model.last_index_dif_cons + 1)
-    model.dif_cons[phase][index] = (dif_fun, set)
+    model.dif_cons[phase][index] = (dif_fun, set, Float64(scaling))
     model.last_index_dif_cons += 1
 
     if !(dif_fun.dyn_var in model.dif_dyn_vars)
@@ -346,10 +355,19 @@ function MOI.add_constraint(
     alg_fun::DOI.NonlinearDynamicFunction,
     set::EQ64,
 )
+    return MOI.add_constraint(model, alg_fun, set, 1.0)
+end
+
+function MOI.add_constraint(
+    model::Optimizer,
+    alg_fun::DOI.NonlinearDynamicFunction,
+    set::EQ64,
+    scaling::Real,
+)
     phase = DOI.phase_index(alg_fun)
     _throw_if_invalid_index(model, phase)
     index = MOI.ConstraintIndex{DOI.NonlinearDynamicFunction,EQ64}(model.last_index_alg_cons + 1)
-    model.alg_cons[phase][index] = (alg_fun, set)
+    model.alg_cons[phase][index] = (alg_fun, set, Float64(scaling))
     model.last_index_alg_cons += 1
     _push_dif_vars!(model, alg_fun)
     return index

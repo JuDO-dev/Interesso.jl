@@ -32,6 +32,8 @@ MOI.get(model::Optimizer, attr::MOI.ObjectiveSense) = MOI.get(model.inner, attr)
 
 MOI.supports_incremental_interface(::Optimizer) = true
 
+MOI.get(model::Optimizer, attr::MOI.ObjectiveValue) = MOI.get(model.inner, attr)
+
 
 ## Interesso Optimizer Attributes
 

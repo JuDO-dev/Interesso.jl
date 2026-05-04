@@ -289,9 +289,16 @@ function transcribe_bou_fun(bolza::BOLZA, model::Optimizer, meshes::MESHES)
 end
 
 # least-square dynamics
+function apply_scaling(residual::T, scaling::Float64) where {T<:MOI.AbstractFunction}
+    return scaling == 1.0 ?
+           residual :
+           MOI.ScalarNonlinearFunction(:*, Any[scaling, residual])
+end
+
 function transcribe_dif_least_square(
     model::Optimizer,
     dif_fun::DIF_FUN,
+    scaling::Float64,
     i::Integer,
     phase::PHS,
     mesh::FixedIntervalsMesh{PM,MM,BM},
@@ -305,9 +312,12 @@ function transcribe_dif_least_square(
             MOI.ScalarNonlinearFunction(:*, [
                 mesh.method_meshes[i].quad_points_mesh.quad_weights[q],
                 MOI.ScalarNonlinearFunction(:^, [
-                    transcribe_dyn_fun(
-                        dif_fun, i, q, model.phase_vars, model.time_vars[phase],
-                        model.dyn_var_vars, model.dif_dyn_vars, mesh
+                    apply_scaling(
+                        transcribe_dyn_fun(
+                            dif_fun, i, q, model.phase_vars, model.time_vars[phase],
+                            model.dyn_var_vars, model.dif_dyn_vars, mesh
+                        ),
+                        scaling,
                     ),
                     2.0
                 ])
@@ -319,6 +329,7 @@ end
 function transcribe_dif_least_square(
     model::Optimizer,
     dif_fun::DIF_FUN,
+    scaling::Float64,
     i::Integer,
     phase::PHS,
     mesh::FlexibleIntervalsMesh{PM,MM,BM},
@@ -332,9 +343,12 @@ function transcribe_dif_least_square(
             MOI.ScalarNonlinearFunction(:*, [
                 mesh.method_mesh.quad_points_mesh.quad_weights[q],
                 MOI.ScalarNonlinearFunction(:^, [
-                    transcribe_dyn_fun(
-                        dif_fun, i, q, model.phase_vars, model.time_vars[phase],
-                        model.dyn_var_vars, model.dif_dyn_vars, mesh
+                    apply_scaling(
+                        transcribe_dyn_fun(
+                            dif_fun, i, q, model.phase_vars, model.time_vars[phase],
+                            model.dyn_var_vars, model.dif_dyn_vars, mesh
+                        ),
+                        scaling,
                     ),
                     2.0
                 ])
@@ -356,8 +370,8 @@ function transcribe_dif_least_square(
         :+,
         [
             transcribe_dif_least_square(
-                model, dif_fun, i, phase, mesh
-            ) for (dif_fun, _) in values(dif_cons)
+                model, dif_fun, scaling, i, phase, mesh
+            ) for (dif_fun, _, scaling) in values(dif_cons)
         ]
     ) 
 end
@@ -381,6 +395,7 @@ end
 function transcribe_alg_least_square(
     model::Optimizer,
     alg_fun::NDF,
+    scaling::Float64,
     i::Integer,
     phase::PHS,
     mesh::FixedIntervalsMesh{PM,MM,BM},
@@ -394,9 +409,12 @@ function transcribe_alg_least_square(
             MOI.ScalarNonlinearFunction(:*, [
                 mesh.method_meshes[i].quad_points_mesh.quad_weights[q],
                 MOI.ScalarNonlinearFunction(:^, [
-                    transcribe_dyn_fun(
-                        alg_fun, i, q, model.phase_vars, model.time_vars[phase],
-                        model.dyn_var_vars, model.dif_dyn_vars, mesh
+                    apply_scaling(
+                        transcribe_dyn_fun(
+                            alg_fun, i, q, model.phase_vars, model.time_vars[phase],
+                            model.dyn_var_vars, model.dif_dyn_vars, mesh
+                        ),
+                        scaling,
                     ),
                     2.0
                 ])
@@ -408,6 +426,7 @@ end
 function transcribe_alg_least_square(
     model::Optimizer,
     alg_fun::NDF,
+    scaling::Float64,
     i::Integer,
     phase::PHS,
     mesh::FlexibleIntervalsMesh{PM,MM,BM},
@@ -421,9 +440,12 @@ function transcribe_alg_least_square(
             MOI.ScalarNonlinearFunction(:*, [
                 mesh.method_mesh.quad_points_mesh.quad_weights[q],
                 MOI.ScalarNonlinearFunction(:^, [
-                    transcribe_dyn_fun(
-                        alg_fun, i, q, model.phase_vars, model.time_vars[phase],
-                        model.dyn_var_vars, model.dif_dyn_vars, mesh
+                    apply_scaling(
+                        transcribe_dyn_fun(
+                            alg_fun, i, q, model.phase_vars, model.time_vars[phase],
+                            model.dyn_var_vars, model.dif_dyn_vars, mesh
+                        ),
+                        scaling,
                     ),
                     2.0
                 ])
@@ -445,8 +467,8 @@ function transcribe_alg_least_square(
         :+,
         [
             transcribe_alg_least_square(
-                model, alg_fun, i, phase, mesh
-            ) for (alg_fun, _) in values(alg_cons)
+                model, alg_fun, scaling, i, phase, mesh
+            ) for (alg_fun, _, scaling) in values(alg_cons)
         ]
     )
 end

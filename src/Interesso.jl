@@ -40,7 +40,7 @@ export AbstractIntervals, AbstractIntervalsMesh, FixedIntervals, FlexibleInterva
 export @variable
 export get_solutions, warmstart!
 export get_primal, get_dual, get_primal_dual, set_primal_start!, set_dual_start!
-export eval_funcs, eval_accuracy, assess_solution, list_constraint_violations, residual_map
+export eval_funcs, eval_accuracy, assess_solution, residual_map, summarize_residual
 export refine!
 export perturb_solution, perturb_solutions
 export plot, plot_residual, plot_residual!

@@ -7,9 +7,8 @@ using Ipopt
 using JLD2
 
 
-include(joinpath(@__DIR__, "linear_bicycle.jl"))
 include(joinpath(@__DIR__, "race_car_acados.jl"))
-
+include(joinpath(@__DIR__, "race_car_plot.jl"))
 
 const NDF = DOI.NonlinearDynamicFunction
 
@@ -40,32 +39,31 @@ end
 # )
 
 optimizer = Ipopt.Optimizer()
-MOI.set(optimizer, "max_iter" => 1000)
+MOI.set(optimizer, "max_iter" => 10000)
 
 model = Interesso.Optimizer(
     inner=optimizer,
     default_intervals=FixedIntervals(50),
     default_points=LGRPoints(4),
-    default_method=Collocation(),
-    # default_method=DAIROpti(5),
-    # default_method=QPM(5;pen_param=0.0001),
+    # default_method=Collocation(),
+    # default_method=DAIROpti(5;tolerance=1e-8),
+    default_method=DAIR(5),
+    # default_method=QPM(5;penalty=0.0001),
     # default_method=SAIR(5),
     # default_bounds=SampledBounds(9)
 )
 
-# primal = nothing
-@load joinpath(@__DIR__, "race_car_primals.jld2") primal
+primal = nothing
+# @load joinpath(@__DIR__, "race_car_primals.jld2") primal
 
-trackfile = joinpath(@__DIR__, "tracks", "txt_43/catalunya_2022_T14-15.txt")
-# trackfile = joinpath(@__DIR__, "tracks", "txt/catalunya_2022_T0.txt")
+trackfile = joinpath(@__DIR__, "../tracks", "txt_43/catalunya_2022_T3.txt")
 
 race_car(model, trackfile)
-# linear_bicycle(model, trackfile)
 
 MOI.optimize!(model; primal)
 
 # primal = get_primal(model)
-# @save "example/vehicle/race_car_primals.jld2" primal
+# @save joinpath(@__DIR__, "race_car_primals.jld2") primal
 
 # (_, R, _, _) = assess_solution(model);
 # res = Float64[]

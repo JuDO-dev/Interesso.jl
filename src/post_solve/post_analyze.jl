@@ -1,17 +1,15 @@
 struct IntervalResidual
+    nodes::Vector{Float64}
+    residual::Vector{Float64}
+    label::String
     phase::PHS
-    interval::Int
-    t_a::Float64
-    t_b::Float64
-    residual::Float64
-    point_mesh::Vector{Float64}
-    point_res::Vector{Float64}
+    interval_residual::Vector{Float64}
 end
 
 function assess_solution(model::Optimizer; q::Integer=10)
 
     residuals = eval_accuracy(model; q)
-    solution_error = sum(r.residual for r in residuals)
+    solution_error = sum(sum(r.interval_residual) for r in residuals)
     residual_error = sum(abs, eval_funcs(model.inner, model.res_funcs))
     quad_error = abs(solution_error - residual_error)
 
@@ -51,70 +49,174 @@ function eval_accuracy(model::Optimizer; q::Integer=10)
     results = IntervalResidual[]
 
     for phase in model.phases
-        mesh = get(model.meshes, phase, nothing)
-        mesh === nothing && continue
+        for (_, (dif_fun, _, _)) in model.dif_cons[phase]
+            push!(
+                results,
+                _eval_residual_function(model, phase, dif_fun, τ_nodes, τ_weights),
+            )
+        end
 
-        dif_cons = collect(values(model.dif_cons[phase]))
-        alg_cons = collect(values(model.alg_cons[phase]))
-        (isempty(dif_cons) && isempty(alg_cons)) && continue
-
-        for (idx, mesh_i) in enumerate(get_points_meshes(mesh))
-            Δt = 0.5 * (mesh_i.t_b - mesh_i.t_a)
-            Σt = 0.5 * (mesh_i.t_b + mesh_i.t_a)
-
-            interval_res = 0.0
-            point_mesh = Float64[]
-            point_res = Float64[]
-
-            for (τ, ω) in zip(τ_nodes, τ_weights)
-                t = Σt + Δt * τ
-                weight = Δt * ω
-
-                R = 0.0
-
-                for (dif_fun, _) in dif_cons
-                    residual = _evaluate_differential_residual(model, dif_fun, t)
-                    R += abs(residual)
-                end
-
-                for (alg_fun, set) in alg_cons
-                    value = _evaluate_dynamic_function(model, alg_fun, t)
-                    violation = _constraint_violation(value, set)
-                    R += abs(violation)
-                end
-
-                interval_res += weight * R
-                push!(point_mesh, t)
-                push!(point_res, R)
-            end
-
-            push!(results, IntervalResidual(phase, idx, mesh_i.t_a, mesh_i.t_b, interval_res, point_mesh, point_res))
+        for (_, (alg_fun, set, _)) in model.alg_cons[phase]
+            push!(
+                results,
+                _eval_residual_function(model, phase, alg_fun, set, τ_nodes, τ_weights),
+            )
         end
     end
 
     return results
 end
 
+function _eval_residual_function(
+    model::Optimizer,
+    phase::PHS,
+    dif_fun::DIF_FUN,
+    τ_nodes::Vector{Float64},
+    τ_weights::Vector{Float64},
+)
+    nodes = Float64[]
+    residual = Float64[]
+    interval_residual = Float64[]
+
+    for mesh_i in get_points_meshes(model.meshes[phase])
+        Δt = 0.5 * (mesh_i.t_b - mesh_i.t_a)
+        Σt = 0.5 * (mesh_i.t_b + mesh_i.t_a)
+        l1 = 0.0
+
+        for (τ, ω) in zip(τ_nodes, τ_weights)
+            t = Σt + Δt * τ
+            r = abs(_evaluate_differential_residual(model, dif_fun, t))
+            push!(nodes, t)
+            push!(residual, r)
+            l1 += Δt * ω * r
+        end
+        push!(interval_residual, l1)
+    end
+
+    return IntervalResidual(
+        nodes,
+        residual,
+        _residual_label(model, dif_fun),
+        phase,
+        interval_residual,
+    )
+end
+
+function _eval_residual_function(
+    model::Optimizer,
+    phase::PHS,
+    alg_fun::NDF,
+    set::MOI.EqualTo{Float64},
+    τ_nodes::Vector{Float64},
+    τ_weights::Vector{Float64},
+)
+    nodes = Float64[]
+    residual = Float64[]
+    interval_residual = Float64[]
+    for mesh_i in get_points_meshes(model.meshes[phase])
+        Δt = 0.5 * (mesh_i.t_b - mesh_i.t_a)
+        Σt = 0.5 * (mesh_i.t_b + mesh_i.t_a)
+        l1 = 0.0
+
+        for (τ, ω) in zip(τ_nodes, τ_weights)
+            t = Σt + Δt * τ
+            value = _evaluate_dynamic_function(model, alg_fun, t)
+            r = abs(_constraint_violation(value, set))
+            push!(nodes, t)
+            push!(residual, r)
+            l1 += Δt * ω * r
+        end
+        push!(interval_residual, l1)
+    end
+
+    return IntervalResidual(
+        nodes,
+        residual,
+        _residual_label(model, alg_fun),
+        phase,
+        interval_residual,
+    )
+end
+
+function aggregate_residual(residuals::Vector{IntervalResidual}; label::String="aggregate")
+    base = residuals[1]
+    residual = zeros(length(base.residual))
+    interval_residual = zeros(length(base.interval_residual))
+
+    for res in residuals
+        residual .+= res.residual
+        interval_residual .+= res.interval_residual
+    end
+
+    return IntervalResidual(
+        base.nodes,
+        residual,
+        label,
+        base.phase,
+        interval_residual,
+    )
+end
+
+function aggregate_residuals(residuals::Vector{IntervalResidual}; label::String="aggregate")
+    phases = PHS[]
+    for res in residuals
+        res.phase in phases || push!(phases, res.phase)
+    end
+
+    aggregates = IntervalResidual[]
+
+    for phase in phases
+        phase_residuals = [res for res in residuals if res.phase == phase]
+        push!(aggregates, aggregate_residual(phase_residuals; label))
+    end
+
+    return aggregates
+end
+
+function summarize_residual(
+    residuals::Vector{IntervalResidual};
+    filename::AbstractString="residual_summary.csv",
+)
+    open(filename, "w") do io
+        println(io, "label,phase,mean,variance")
+
+        for res in residuals
+            μ = _residual_mean(res.residual)
+            σ2 = _residual_variance(res.residual, μ)
+
+            println(io, "$(res.label),$(res.phase),$(μ),$(σ2)")
+        end
+    end
+
+    return filename
+end
+
+function summarize_residual(
+    model::Optimizer;
+    q::Integer=10,
+    filename::AbstractString="residual_summary.csv",
+)
+    return summarize_residual(eval_accuracy(model; q); filename)
+end
+
+function _residual_mean(values::Vector{Float64})
+    return sum(values) / length(values)
+end
+
+function _residual_variance(values::Vector{Float64}, mean::Float64)
+    return sum((value - mean)^2 for value in values) / length(values)
+end
+
+function _residual_label(model::Optimizer, dif_fun::DIF_FUN)
+    return get(model.dyn_var_names, dif_fun.dyn_var, string(dif_fun.dyn_var))
+end
+
+function _residual_label(::Optimizer, ::NDF)
+    return "algebraic"
+end
+
 function _constraint_violation(value::Float64, set::MOI.EqualTo{Float64})
     return value - set.value
-end
-
-function _constraint_violation(value::Float64, set::MOI.LessThan{Float64})
-    return max(0.0, value - set.upper)
-end
-
-function _constraint_violation(value::Float64, set::MOI.GreaterThan{Float64})
-    return max(0.0, set.lower - value)
-end
-
-function _constraint_violation(value::Float64, set::MOI.Interval{Float64})
-    if value > set.upper
-        return value - set.upper
-    elseif value < set.lower
-        return set.lower - value
-    else
-        return 0.0
-    end
 end
 
 function _evaluate_value(
@@ -261,15 +363,8 @@ function _resolve_operator(head::Symbol)
     throw(ArgumentError("Unsupported nonlinear operator $(head)."))
 end
 
-
 function residual_map(model::Optimizer; q::Integer=10)
-    results = eval_accuracy(model; q)
-    return (
-        domain = reduce(vcat, r.point_mesh for r in results),
-        l1_residual = reduce(vcat, r.point_res  for r in results),
-        interval = reduce(vcat, fill(r.interval, length(r.point_mesh)) for r in results),
-        q = q,
-    )
+    return eval_accuracy(model; q)
 end
 
 function plot_residual!(args...; kwargs...)
@@ -282,167 +377,4 @@ function plot_residual(args...; kwargs...)
     throw(ArgumentError(
         "Plotting support requires `using Plots` first."
     ))
-end
-
-function list_constraint_violations(
-    model::Optimizer;
-    q::Integer=10,
-    path::AbstractString="constraint_violations.csv",
-    map_path::AbstractString="constraint_violation_map.csv",
-    min_magnitude::Float64=0.0,
-    top_n::Union{Nothing,Int}=nothing,
-)
-    if q < 1
-        throw(DomainError(q, "Please ensure q ≥ 1."))
-    end
-    if min_magnitude < 0.0
-        throw(DomainError(min_magnitude, "Please ensure min_magnitude ≥ 0.0."))
-    end
-    if top_n !== nothing && top_n < 1
-        throw(DomainError(top_n, "Please ensure top_n ≥ 1 or nothing."))
-    end
-
-    τ_nodes, τ_weights = FGQ.gausslegendre(q)
-
-    rows = NamedTuple[]
-    map_rows = NamedTuple[]
-
-    for phase in model.phases
-        mesh = get(model.meshes, phase, nothing)
-        mesh === nothing && continue
-
-        dif_cons = collect(pairs(model.dif_cons[phase]))
-        alg_cons = collect(pairs(model.alg_cons[phase]))
-
-        dif_ids = Dict{Any,Int}()
-        alg_ids = Dict{Any,Int}()
-
-        for (k, (_, (dif_fun, _))) in enumerate(dif_cons)
-            dif_ids[dif_fun] = k
-            push!(map_rows, (
-                phase=phase,
-                constraint_type="dif",
-                constraint_id=k,
-                label=_compact_constraint_label(dif_fun),
-            ))
-        end
-
-        for (k, (_, (alg_fun, _))) in enumerate(alg_cons)
-            alg_ids[alg_fun] = k
-            push!(map_rows, (
-                phase=phase,
-                constraint_type="alg",
-                constraint_id=k,
-                label=_compact_constraint_label(alg_fun),
-            ))
-        end
-
-        for (i, mesh_i) in enumerate(get_points_meshes(mesh))
-            Δt = 0.5 * (mesh_i.t_b - mesh_i.t_a)
-            Σt = 0.5 * (mesh_i.t_b + mesh_i.t_a)
-
-            for (q_idx, (τ, ω)) in enumerate(zip(τ_nodes, τ_weights))
-                t = Σt + Δt * τ
-                w = Δt * ω
-
-                for (_, (dif_fun, _)) in dif_cons
-                    value = _evaluate_differential_residual(model, dif_fun, t)
-                    magnitude = abs(value)
-                    magnitude < min_magnitude && continue
-
-                    push!(rows, (
-                        phase=phase,
-                        constraint_type="dif",
-                        constraint_id=dif_ids[dif_fun],
-                        i=i,
-                        q=q_idx,
-                        t=t,
-                        magnitude=magnitude,
-                        l1_term=w * magnitude,
-                    ))
-                end
-
-                for (_, (alg_fun, _)) in alg_cons
-                    value = _evaluate_dynamic_function(model, alg_fun, t)
-                    magnitude = abs(value)
-                    magnitude < min_magnitude && continue
-
-                    push!(rows, (
-                        phase=phase,
-                        constraint_type="alg",
-                        constraint_id=alg_ids[alg_fun],
-                        i=i,
-                        q=q_idx,
-                        t=t,
-                        magnitude=magnitude,
-                        l1_term=w * magnitude,
-                    ))
-                end
-            end
-        end
-    end
-
-    sort!(rows; by=row -> row.l1_term, rev=true)
-
-    if top_n !== nothing && length(rows) > top_n
-        resize!(rows, top_n)
-    end
-
-    open(path, "w") do io
-        println(io, "phase,constraint_type,constraint_id,i,q,t,magnitude,l1_term")
-        for row in rows
-            println(
-                io,
-                string(
-                    row.phase, ",",
-                    row.constraint_type, ",",
-                    row.constraint_id, ",",
-                    row.i, ",",
-                    row.q, ",",
-                    row.t, ",",
-                    row.magnitude, ",",
-                    row.l1_term,
-                ),
-            )
-        end
-    end
-
-    open(map_path, "w") do io
-        println(io, "phase,constraint_type,constraint_id,label")
-        for row in map_rows
-            println(
-                io,
-                string(
-                    row.phase, ",",
-                    row.constraint_type, ",",
-                    row.constraint_id, ",",
-                    _csv_escape(row.label),
-                ),
-            )
-        end
-    end
-
-    return rows
-end
-
-function _compact_constraint_label(dif_fun::DOI.ExplicitDifferentialFunction)
-    return string("d/dt(", _compact_string(dif_fun.dyn_var), ") - ", _compact_string(dif_fun.dyn_fun))
-end
-
-function _compact_constraint_label(fun)
-    return _compact_string(fun)
-end
-
-function _compact_string(x)
-    s = repr(x)
-    s = replace(s, '\n' => ' ', '\r' => ' ', '\t' => ' ')
-    s = replace(s, r"\s+" => " ")
-    return strip(s)
-end
-
-function _csv_escape(s::AbstractString)
-    if occursin(',', s) || occursin('"', s)
-        return "\"" * replace(s, "\"" => "\"\"") * "\""
-    end
-    return s
 end

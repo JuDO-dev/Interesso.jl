@@ -212,28 +212,9 @@ function MOI.optimize!(
     dual::Union{Nothing,Dict{Tuple{DataType,DataType},Vector{Float64}}}=nothing
 )
 
-    # Two NLPs if DAIR
+    # DAIR
     if model.default_method isa DAIR
-
-        ocp_quad = model.default_method
-        ocp_sense = model.objective_sense
-
-        ## Phase 1: Feasibility
-        model.default_method = DAIRFeas(ocp_quad)
-        model.objective_sense = MOI.MIN_SENSE
-
-        MOI.optimize!(model; primal, dual)
-
-        primal = get_primal(model)
-
-        ## Phase 2: Optimality
-        reset!(model)
-
-        model.default_method = DAIROpti(ocp_quad)
-        model.objective_sense = ocp_sense
-
-        MOI.optimize!(model; primal, dual=nothing)
-
+        DAIR_method(model; primal, dual)
         return nothing
     end
 
@@ -320,4 +301,44 @@ function MOI.optimize!(
     save_solutions!(model)
 
     return nothing
+end
+
+
+function DAIR_method(
+    model::Optimizer;
+    primal::Union{Nothing,Vector{Float64}}=nothing,
+    dual::Union{Nothing,Dict{Tuple{DataType,DataType},Vector{Float64}}}=nothing
+)
+    ocp_quad = model.default_method
+    ocp_sense = model.objective_sense
+
+    ## Phase 1: Feasibility
+    model.default_method = DAIRFeas(ocp_quad)
+    model.objective_sense = MOI.MIN_SENSE
+
+    MOI.optimize!(model; primal, dual)
+
+    primal = get_primal(model)
+    tolerance = max(
+        1e-8, 
+        MOI.get(model, MOI.ObjectiveValue()) / get_tolerance_scaling(model)
+    )
+
+    ## Phase 2: Optimality
+    reset!(model)
+
+    model.default_method = DAIROpti(ocp_quad; tolerance)
+    model.objective_sense = ocp_sense
+
+    MOI.optimize!(model; primal, dual=nothing)
+
+    return nothing
+end
+
+function get_tolerance_scaling(model::Optimizer)
+    n_h = 0
+    for phase in model.phases
+        n_h += get_intervals_length(model.meshes[phase]) * (length(model.dif_cons[phase]) + length(model.alg_cons[phase]))
+    end
+    return n_h
 end

@@ -56,14 +56,14 @@ model = Interesso.Optimizer(
     # default_intervals=FlexibleIntervals(10, 0.1),
     default_intervals=FixedIntervals(50),
     default_points=LGRPoints(3),
-    default_method=Collocation(),
-    # default_method=DAIR(5),
-    # default_method=QPM(5;pen_param=0.0001),
+    # default_method=Collocation(),
+    default_method=DAIR(5),
+    # default_method=QPM(5;penalty=0.0001),
     # default_method=SAIR(5),
     # default_bounds=SampledBounds(9)
 )
 
-space_shuttle_reentry(model)
+two_link_robot_arm(model)
 
 MOI.optimize!(model)
 

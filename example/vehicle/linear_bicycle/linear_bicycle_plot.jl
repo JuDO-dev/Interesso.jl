@@ -1,6 +1,6 @@
 using Plots
 
-include(joinpath(@__DIR__, "tracks", "get_track.jl"))
+include(joinpath(@__DIR__, "../tracks/get_track.jl"))
 
 function plot_trajectory(model::Interesso.Optimizer, trackfile::AbstractString)
     plt = plot_track(trackfile)
@@ -41,11 +41,12 @@ function plot_trajectory!(plt::Plots.Plot, model::Interesso.Optimizer, trackfile
 
     for phase in model.phases
         phase_sols = get(solutions, phase, nothing)
-        n_sol = get(phase_sols, "n", nothing)
-        v_sol = get(phase_sols, "v", nothing)
+        n_sol  = get(phase_sols, "e_y", nothing)
+        vx_sol = get(phase_sols, "v_x", nothing)
+        vy_sol = get(phase_sols, "v_y", nothing)
 
         n_eval = [n_sol(s) for s in sref]
-        v_eval = [v_sol(s) for s in sref]
+        v_eval = [sqrt(vx_sol(s)^2 + vy_sol(s)^2) for s in sref]
 
         x_traj = xref .- n_eval .* sin.(ψref)
         y_traj = yref .+ n_eval .* cos.(ψref)
@@ -54,59 +55,13 @@ function plot_trajectory!(plt::Plots.Plot, model::Interesso.Optimizer, trackfile
 
         scatter!(plt, x_traj, y_traj;
             marker_z = v_eval, color = :imola,
-            markersize = 0.5, markerstrokewidth = 0,
+            markersize = 1.0, markerstrokewidth = 0,
             colorbar = true, colorbar_title = "\nv [m/s]", right_margin = 10Plots.mm, label = "")
     end
 
     return plt
 end
 
-# ────────────────────────────────────────────────────────────────────
-# plot_solution — state and control time-histories vs arc-length
-# ────────────────────────────────────────────────────────────────────
-function plot_solution(model::Interesso.Optimizer; N::Int = 500)
-
-    solutions = Interesso.get_solutions(model)
-
-    var_specs = [
-        ("t", "t [s]",   :x, nothing),
-        ("n", "n [m]",   :x, [-0.12, 0.12]),
-        ("α", "α [rad]", :x, nothing),
-        ("v", "v [m/s]", :x, nothing),
-        ("D", "D",       :u, [-1.0, 1.0]),
-        ("δ", "δ [rad]", :u, [-0.40, 0.40]),
-    ]
-
-    subplots = Plots.Plot[]
-
-    for (name, ylabel, tag, bounds) in var_specs
-        sp = Plots.plot(; ylabel = ylabel, label = "", linewidth = 1.5)
-        if bounds !== nothing
-            hline!(sp, bounds; linestyle = :dash, color = :red, label = "")
-        end
-
-        for phase in model.phases
-            phase_sols = get(solutions, phase, nothing)
-            phase_sols === nothing && continue
-            sol = get(phase_sols, name, nothing)
-            sol === nothing && continue
-
-            s_eval = range(sol.initial, sol.final; length = N)
-            y_eval = [sol(s) for s in s_eval]
-            if tag == :x
-                Plots.plot!(sp, collect(s_eval), y_eval; color = :dodgerblue, label = "", linewidth = 1.5)
-            elseif tag == :u
-                Plots.plot!(sp, collect(s_eval), y_eval; color = :orange, label = "", linewidth = 1.5)
-            end
-        end
-
-        push!(subplots, sp)
-    end
-
-    return Plots.plot(subplots...;
-        layout = (length(subplots), 1), size = (800, 200*length(subplots)), link = :x,
-        left_margin = 8Plots.mm)
-end
 
 # ────────────────────────────────────────────────────────────────────
 # plot_curvature — curvature spline vs track data

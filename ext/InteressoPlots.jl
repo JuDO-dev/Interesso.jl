@@ -95,35 +95,85 @@ function Interesso.plot(model::Interesso.Optimizer)
     return plt
 end
 
-function Interesso.plot_residual!(plt::Plots.Plot, res; label::String="1-norm residual")
-    Plots.plot!(
-        plt,
-        res.domain,
-        res.l1_residual;
-        xlabel = "domain",
-        ylabel = "value",
-        label = label,
-        grid = true,
-    )
+function Interesso.plot_residual!(
+    plt::Plots.Plot,
+    residuals::Vector{Interesso.IntervalResidual};
+    aggregate::Bool=false,
+    label::String="aggregate",
+)
+    plot_residuals = aggregate ?
+        Interesso.aggregate_residuals(residuals; label) :
+        residuals
+
+    for res in plot_residuals
+        Plots.plot!(
+            plt,
+            res.nodes,
+            res.residual;
+            xlabel = "domain",
+            ylabel = "residual",
+            label = res.label,
+            grid = true,
+        )
+        # Plots.bar!(
+        #     plt,
+        #     res.nodes,
+        #     res.residual;
+        #     xlabel = "domain",
+        #     ylabel = "residual",
+        #     label = res.label,
+        #     grid = true,
+        #     linealpha = 0,
+        # )
+        # Plots.scatter!(
+        #     plt,
+        #     res.nodes,
+        #     res.residual;
+        #     xlabel = "domain",
+        #     ylabel = "residual",
+        #     label = res.label,
+        #     grid = true,
+        #     markersize = 1,
+        #     markeralpha = 0.9,
+        #     markerstrokewidth = 0,
+        # )
+    end
+
     return plt
 end
 
-function Interesso.plot_residual!(plt::Plots.Plot, model::Interesso.Optimizer; q::Integer=10, label::String="1-norm residual")
-    res = Interesso.residual_map(model; q)
-    return Interesso.plot_residual!(plt, res; label)
+function Interesso.plot_residual!(
+    plt::Plots.Plot,
+    model::Interesso.Optimizer;
+    q::Integer=10,
+    aggregate::Bool=false,
+    label::String="aggregate",
+)
+    residuals = Interesso.residual_map(model; q)
+    return Interesso.plot_residual!(plt, residuals; aggregate, label)
 end
 
-function Interesso.plot_residual(res; label::String="1-norm residual")
+function Interesso.plot_residual(
+    residuals::Vector{Interesso.IntervalResidual};
+    aggregate::Bool=false,
+    label::String="aggregate",
+)
     plt = Plots.plot()
-    Interesso.plot_residual!(plt, res; label)
-    Plots.plot!(plt; title = "Residual at interpolated $(res.q) quadrature points")
+    Interesso.plot_residual!(plt, residuals; aggregate, label)
+    Plots.plot!(plt; title = "Residual at quadrature points")
     return plt
 end
 
-function Interesso.plot_residual(model::Interesso.Optimizer; q::Integer=10, label::String="1-norm residual")
-    plt = Plots.plot()
-    res = Interesso.residual_map(model; q)
-    return Interesso.plot_residual!(plt, res; label)
+function Interesso.plot_residual(
+    model::Interesso.Optimizer;
+    q::Integer=10,
+    aggregate::Bool=false,
+    label::String="aggregate",
+)
+    residuals = Interesso.residual_map(model; q)
+    plt = Interesso.plot_residual(residuals; aggregate, label)
+    Plots.plot!(plt; title = "Residual at interpolated $(q) quadrature points")
+    return plt
 end
 
 end

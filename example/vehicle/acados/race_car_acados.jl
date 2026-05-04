@@ -1,6 +1,6 @@
 using Plots
 
-include(joinpath(@__DIR__, "tracks/get_track.jl"))
+include(joinpath(@__DIR__, "../tracks/get_track.jl"))
 include(joinpath(@__DIR__, "race_car_plot.jl"))
 
 # ────────────────────────────────────────────────────────────────────

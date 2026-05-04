@@ -4,8 +4,15 @@
 Return the time at which the pointwise residual is largest within the interval.
 """
 function find_split_point(model::Optimizer, res::IntervalResidual)
-    idx = argmax(res.point_res)
-    t = res.point_mesh[idx]
+    interval = argmax(R.interval_residual)
+    q = div(length(res.nodes), length(res.interval_residual))
+
+    first_node = (interval - 1) * q + 1
+    last_node = interval * q
+
+    node = first_node + argmax(res.residual[first_node:last_node]) - 1
+    t = res.nodes[node]
+
     if model.phase_finals[res.phase] isa MOI.EqualTo
         t_0 = model.phase_initials[res.phase].value
         t_f = model.phase_finals[res.phase].value
@@ -32,24 +39,21 @@ After this returns, call `MOI.optimize!(model)` to re-solve.
 """
 function refine!(model::Optimizer; q::Integer=10)
 
-    # 1. per-interval residuals (with pointwise data)
     residuals = eval_accuracy(model; q)
-    R = argmax(r -> r.residual, residuals)
+    aggregates = aggregate_residuals(residuals)
 
-    # 2. split point — just a lookup, no re-evaluation
+    R = argmax(r -> maximum(r.interval_residual), aggregates)
+    interval = argmax(R.interval_residual)
     τ = find_split_point(model, R)
 
-    # 3. warm-start from current solution
     model.phase_finals[R.phase] isa MOI.EqualTo && normalize_solutions!(model)
     solutions = get_solutions(model)
     warmstart!(model, solutions)
 
-    # 4. read breakpoints from mesh before reset clears it
-    interval = get(model.phase_intervals, R.phase, model.default_intervals)
-    points = interval.points
-    insert!(points, R.interval + 1, τ)
+    phase_interval = get(model.phase_intervals, R.phase, model.default_intervals)
+    points = phase_interval.points
+    insert!(points, interval + 1, τ)
 
-    # 5. reset and install
     reset!(model)
     model.phase_intervals[R.phase] = FixedIntervals(points)
 

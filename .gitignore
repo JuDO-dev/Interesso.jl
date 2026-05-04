@@ -7,5 +7,6 @@ trial/
 *.png
 *.svg
 *.jld2
+*.csv
 
 example/vehicle/tracks

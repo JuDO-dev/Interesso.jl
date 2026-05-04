@@ -386,14 +386,19 @@ function transcribe_dif_cons!(
     n_p_alg = get_points_alg_length(mesh)
 
     for q in 1:n_p_alg
-        for (dif_fun, set) in values(dif_cons)
+        for (dif_fun, set, scaling) in values(dif_cons)
             dif_con = transcribe_dyn_fun(
                 dif_fun, i, q, model.phase_vars, model.time_vars[phase],
                 model.dyn_var_vars, model.dif_dyn_vars, mesh
             )
+            scaled_dif_con = apply_scaling(dif_con, scaling)
 
-            MOI.add_constraint(model.inner, dif_con, set)
-            push!(model.res_funcs, dif_con)
+            MOI.add_constraint(
+                model.inner,
+                scaled_dif_con,
+                MOI.EqualTo(scaling * set.value),
+            )
+            push!(model.res_funcs, scaled_dif_con)
         end
     end
     return nothing
@@ -411,12 +416,19 @@ function transcribe_alg_cons!(
     n_p_alg = get_points_alg_length(mesh)
 
     for q in 1:n_p_alg
-        for (alg_fun, set) in values(alg_cons)
+        for (alg_fun, set, scaling) in values(alg_cons)
             alg_con = transcribe_dyn_fun(
                 alg_fun, i, q, model.phase_vars, model.time_vars[phase],
                 model.dyn_var_vars, model.dif_dyn_vars, mesh
             )
-            MOI.add_constraint(model.inner, alg_con, set)
+            scaled_alg_con = apply_scaling(alg_con, scaling)
+
+            MOI.add_constraint(
+                model.inner,
+                scaled_alg_con,
+                MOI.EqualTo(scaling * set.value),
+            )
+            push!(model.res_funcs, scaled_alg_con)
         end
     end
     return nothing
@@ -445,7 +457,6 @@ function transcribe_dif_cons!(
         MOI.add_constraint(
             model.inner,
             f,
-            # MOI.Interval(-1e-4, 1e-4),
             MOI.EqualTo(0.0)
         )
         push!(model.dif_res_funcs, f)
@@ -478,18 +489,58 @@ function transcribe_alg_cons!(
     model::Optimizer,
     i::Integer,
     phase::PHS,
-    mesh::AbstractIntervalsMesh{PM,MM,BM},
+    mesh::FixedIntervalsMesh{PM,MM,BM},
 ) where {PM,MM<:Union{DAIROptiMesh,SAIRMesh},BM}
 
-    ϵ = 1e-6
-    ϵ /= get_intervals_length(mesh)
-    f = transcribe_dyn_least_square(model, i, phase, mesh)
-    MOI.add_constraint(
-        model.inner,
-        f,
-        MOI.LessThan(ϵ),
-    )
-    push!(model.res_funcs, f)
+    for (dif_fun, _, scaling) in values(model.dif_cons[phase])
+        f = transcribe_dif_least_square(model, dif_fun, scaling, i, phase, mesh) 
+        MOI.add_constraint(
+            model.inner,
+            f,
+            MOI.LessThan(mesh.method_meshes[i].tolerance),
+        )
+        push!(model.res_funcs, f)
+    end
+
+    for (alg_fun, _, scaling) in values(model.alg_cons[phase])
+        f = transcribe_alg_least_square(model, alg_fun, scaling, i, phase, mesh) 
+        MOI.add_constraint(
+            model.inner,
+            f,
+            MOI.LessThan(mesh.method_meshes[i].tolerance),
+        )
+        push!(model.res_funcs, f)
+    end
+
+    return nothing
+end
+
+function transcribe_alg_cons!(
+    model::Optimizer,
+    i::Integer,
+    phase::PHS,
+    mesh::FlexibleIntervalsMesh{PM,MM,BM},
+) where {PM,MM<:Union{DAIROptiMesh,SAIRMesh},BM}
+
+    for (dif_fun, _, scaling) in values(model.dif_cons[phase])
+        f = transcribe_dif_least_square(model, dif_fun, scaling, i, phase, mesh) 
+        MOI.add_constraint(
+            model.inner,
+            f,
+            MOI.LessThan(mesh.method_mesh.tolerance),
+        )
+        push!(model.res_funcs, f)
+    end
+
+    for (alg_fun, _, scaling) in values(model.alg_cons[phase])
+        f = transcribe_alg_least_square(model, alg_fun, scaling, i, phase, mesh) 
+        MOI.add_constraint(
+            model.inner,
+            f,
+            MOI.LessThan(mesh.method_mesh.tolerance),
+        )
+        push!(model.res_funcs, f)
+    end
 
     return nothing
 end

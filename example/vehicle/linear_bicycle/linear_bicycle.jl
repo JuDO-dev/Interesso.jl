@@ -143,30 +143,47 @@ function linear_bicycle(
         model,
         NDF(:-, [NDF(:*, [NDF(:+, [κ_fx, 1.0], s), v_fx], s), NDF(:*, [(param.R_e / scale), ω_f], s)], s),
         MOI.EqualTo(0.0),
+        1e-2
     )
 
     MOI.add_constraint(
         model,
         NDF(:-, [NDF(:*, [NDF(:+, [κ_rx, 1.0], s), v_x], s), NDF(:*, [(param.R_e / scale), ω_r], s)], s),
         MOI.EqualTo(0.0),
+        1e-2
     )
 
     MOI.add_constraint(
         model,
         NDF(:+, [NDF(:*, [κ_fy, v_fx], s), v_fy], s),
         MOI.EqualTo(0.0),
+        1e-2
     )
 
     MOI.add_constraint(
         model,
         NDF(:+, [NDF(:*, [κ_ry, v_x], s), v_yr], s),
         MOI.EqualTo(0.0),
+        1e-2
     )
 
-    F_xf = NDF(:*, [F_zf, 20.0, κ_fx], s)
-    F_xr = NDF(:*, [F_zr, 20.0, κ_rx], s)
-    F_yf = NDF(:*, [F_zf, 15.0, κ_fy], s)
-    F_yr = NDF(:*, [F_zr, 15.0, κ_ry], s)
+    nF_xf = NDF(:*, [20.0, κ_fx], s)
+    nF_xr = NDF(:*, [20.0, κ_rx], s)
+    nF_yf = NDF(:*, [15.0, κ_fy], s)
+    nF_yr = NDF(:*, [15.0, κ_ry], s)
+
+    F_xf = NDF(:*, [F_zf, nF_xf], s)
+    F_xr = NDF(:*, [F_zr, nF_xr], s)
+    F_yf = NDF(:*, [F_zf, nF_yf], s)
+    F_yr = NDF(:*, [F_zr, nF_yr], s)
+
+    nF_xf2 = NDF(:^, [nF_xf, 2.0], s)
+    nF_xr2 = NDF(:^, [nF_xr, 2.0], s)
+    nF_yf2 = NDF(:^, [nF_yf, 2.0], s)
+    nF_yr2 = NDF(:^, [nF_yr, 2.0], s)
+
+    MOI.add_constraint(model, NDF(:+, [nF_xf2, nF_yf2], s), MOI.LessThan(1.5))
+    MOI.add_constraint(model, NDF(:+, [nF_xr2, nF_yr2], s), MOI.LessThan(1.5))
 
     # -----------------------------
     # Differential equations
@@ -175,8 +192,8 @@ function linear_bicycle(
     t_denom = NDF(:-, [NDF(:*, [v_x, cosξ], s), NDF(:*, [v_y, sinξ], s)], s)
     dt = NDF(:/, [t_nom, t_denom], s)
 
-    # MOI.add_constraint(model, t_nom,   MOI.GreaterThan(0.0))
-    # MOI.add_constraint(model, t_denom, MOI.GreaterThan(0.0))
+    MOI.add_constraint(model, t_nom,   MOI.GreaterThan(0.0))
+    MOI.add_constraint(model, t_denom, MOI.GreaterThan(0.0))
 
     de = NDF(:*, [NDF(:+, [NDF(:*, [v_x, sinξ], s), NDF(:*, [v_y, cosξ], s)], s), dt], s)
     dξ = NDF(:-, [NDF(:*, [dψ, dt], s), κ_c], s)
@@ -268,14 +285,14 @@ function linear_bicycle(
     # Warm start (simple defaults)
     # -----------------------------
     if starts == Interesso.WSS{DOI.AbstractDynamicSolution}()
-        MOI.set(model, DOI.DynamicVariableStart(), t,   LinearInterpolant(0.0, 10.0,   s_0, s_f))
-        MOI.set(model, DOI.DynamicVariableStart(), e_y, LinearInterpolant(0.0, 0.0,   s_0, s_f))
-        MOI.set(model, DOI.DynamicVariableStart(), v_x, LinearInterpolant(vxi, 50.0, s_0, s_f))
-        MOI.set(model, DOI.DynamicVariableStart(), v_y, LinearInterpolant(0.0, 0.0,   s_0, s_f))
-        MOI.set(model, DOI.DynamicVariableStart(), ξ,   LinearInterpolant(0.0, 0.0,   s_0, s_f))
-        MOI.set(model, DOI.DynamicVariableStart(), dψ,  LinearInterpolant(0.0, 0.0,   s_0, s_f))
-        MOI.set(model, DOI.DynamicVariableStart(), ω_f, LinearInterpolant(vxi * scale / param.R_e, 100.0 * scale / param.R_e, s_0, s_f))
-        MOI.set(model, DOI.DynamicVariableStart(), ω_r, LinearInterpolant(vxi * scale / param.R_e, 100.0 * scale / param.R_e, s_0, s_f))
+        MOI.set(model, DOI.DynamicVariableStart(), t,   LinearInterpolant(0.1, 10.0, s_0, s_f))
+        MOI.set(model, DOI.DynamicVariableStart(), e_y, LinearInterpolant(0.0, 0.0,  s_0, s_f))
+        MOI.set(model, DOI.DynamicVariableStart(), v_x, LinearInterpolant(0.1, 50.0, s_0, s_f))
+        MOI.set(model, DOI.DynamicVariableStart(), v_y, LinearInterpolant(0.0, 0.0,  s_0, s_f))
+        MOI.set(model, DOI.DynamicVariableStart(), ξ,   LinearInterpolant(0.0, 0.0,  s_0, s_f))
+        MOI.set(model, DOI.DynamicVariableStart(), dψ,  LinearInterpolant(0.0, 0.0,  s_0, s_f))
+        MOI.set(model, DOI.DynamicVariableStart(), ω_f, LinearInterpolant(0.1, 50.0, s_0, s_f))
+        MOI.set(model, DOI.DynamicVariableStart(), ω_r, LinearInterpolant(0.1, 50.0, s_0, s_f))
 
         # MOI.set(model, DOI.DynamicVariableStart(), δ,    LinearInterpolant(0.0, 0.0, s_0, s_f))
         # MOI.set(model, DOI.DynamicVariableStart(), u_T,  LinearInterpolant(1.0, 1.0, s_0, s_f))
@@ -286,7 +303,6 @@ function linear_bicycle(
         MOI.set(model, DOI.DynamicVariableStart(), κ_ry, LinearInterpolant(0.0, 0.0, s_0, s_f))
     else
         Interesso.warmstart!(model, starts)
-        MOI.set(model, DOI.DynamicVariableStart(), t,   LinearInterpolant(0.1, 5.0, s_0, s_f))
     end
 
     return nothing

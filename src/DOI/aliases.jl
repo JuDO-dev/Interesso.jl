@@ -17,12 +17,12 @@ const DIF_FUN = DOI.ExplicitDifferentialFunction{NDF}
 
 const DIF_CONS = OrderedDict{
     MOI.ConstraintIndex{DIF_FUN,EQ64},
-    Tuple{DIF_FUN,EQ64},
+    Tuple{DIF_FUN,EQ64,Float64},
 }
 
 const ALG_CONS = OrderedDict{
     MOI.ConstraintIndex{NDF,EQ64},
-    Tuple{NDF,EQ64},
+    Tuple{NDF,EQ64,Float64},
 }
 
 const PATH_CONS = OrderedDict{
