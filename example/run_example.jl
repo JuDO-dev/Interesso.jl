@@ -49,23 +49,26 @@ MOI.set(optimizer,
 )
 
 optimizer = Ipopt.Optimizer()
-MOI.set(optimizer, "max_iter" => 1000)
+MOI.set(optimizer, "max_iter" => 2000)
+
+primal = nothing
 
 model = Interesso.Optimizer(
     inner=optimizer,
     # default_intervals=FlexibleIntervals(10, 0.1),
     default_intervals=FixedIntervals(50),
-    default_points=LGRPoints(3),
+    # default_points=LGRPoints(3),
     # default_method=Collocation(),
-    default_method=DAIR(5),
+    # default_method=DAIROpti(5),
+    default_method=Galerkin(5)
     # default_method=QPM(5;penalty=0.0001),
     # default_method=SAIR(5),
     # default_bounds=SampledBounds(9)
 )
 
-two_link_robot_arm(model)
+van_der_pol(model)
 
-MOI.optimize!(model)
+MOI.optimize!(model; primal)
 
 # (_, RR, _, _) = assess_solution(model);
 

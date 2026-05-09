@@ -95,6 +95,8 @@ end
 get_intervals_length(mesh::FixedIntervalsMesh) = length(mesh.points_meshes)
 get_points_meshes(mesh::FixedIntervalsMesh) = mesh.points_meshes
 get_bounds_mesh(mesh::FixedIntervalsMesh) = mesh.bounds_mesh
+get_method_meshes(mesh::FixedIntervalsMesh) = mesh.method_meshes
+get_method_mesh(mesh::FixedIntervalsMesh, i::Integer) = mesh.method_meshes[i]
 
 get_points_dif_length(mesh::FixedIntervalsMesh) = get_points_dif_length(mesh.points_meshes[1])
 get_points_alg_length(mesh::FixedIntervalsMesh) = get_points_alg_length(mesh.points_meshes[1])
@@ -195,6 +197,8 @@ end
 get_intervals_length(mesh::FlexibleIntervalsMesh) = get_intervals_length(mesh.fixed)
 get_points_meshes(mesh::FlexibleIntervalsMesh) = get_points_meshes(mesh.fixed)
 get_bounds_mesh(mesh::FlexibleIntervalsMesh) = get_bounds_mesh(mesh.fixed)
+get_method_meshes(mesh::FlexibleIntervalsMesh) = mesh.method_mesh
+get_method_mesh(mesh::FlexibleIntervalsMesh, ::Integer) = mesh.method_mesh
 
 get_points_dif_length(mesh::FlexibleIntervalsMesh) = get_points_dif_length(mesh.fixed)
 get_points_alg_length(mesh::FlexibleIntervalsMesh) = get_points_alg_length(mesh.fixed)

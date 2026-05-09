@@ -28,7 +28,7 @@ function transcribe_penalty_terms(
     ::Optimizer,
     ::PHS,
     ::AbstractIntervalsMesh{PM,MM,BM},
-) where {PM,MM<:Union{CollocationMesh,DAIROptiMesh,SAIRMesh},BM}
+) where {PM,MM<:Union{CollocationMesh,DAIROptiMesh,SAIRMesh,GalerkinMesh},BM}
     return MOI.ScalarNonlinearFunction(:+, [])
 end
 
@@ -43,17 +43,9 @@ end
 function transcribe_penalty_terms(
     model::Optimizer,
     phase::PHS,
-    mesh::FixedIntervalsMesh{PM,MM,BM},
+    mesh::AbstractIntervalsMesh{PM,MM,BM},
 ) where {PM,MM<:Union{QPMMesh,SAPMMesh},BM}
+    method_mesh = get_method_mesh(mesh, 1)
     pen_fun = transcribe_dyn_least_square(model, phase, mesh)
-    return MOI.ScalarNonlinearFunction(:*, [mesh.method_meshes[1].penalty, pen_fun])
-end
-
-function transcribe_penalty_terms(
-    model::Optimizer,
-    phase::PHS,
-    mesh::FlexibleIntervalsMesh{PM,MM,BM},
-) where {PM,MM<:Union{QPMMesh,SAPMMesh},BM}
-    pen_fun = transcribe_dyn_least_square(model, phase, mesh)
-    return MOI.ScalarNonlinearFunction(:*, [mesh.method_mesh.penalty, pen_fun])
+    return MOI.ScalarNonlinearFunction(:*, [method_mesh.penalty, pen_fun])
 end

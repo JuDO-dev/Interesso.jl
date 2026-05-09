@@ -34,7 +34,7 @@ include("post_solve/plot.jl")
 
 export AbstractInterpolant, PiecewiseInterpolant, LagrangeInterpolant, ZOHInterpolant, CubicInterpolant
 export AbstractPoints, AbstractPointsMesh, LGRPoints, LGLPoints
-export AbstractMethod, AbstractMethodMesh, AbstractIntRes, AbstractIntResMesh, Collocation, AbstractDAIR, DAIR, DAIRFeas, DAIROpti, QPM, SAIR, SAPM
+export AbstractMethod, AbstractMethodMesh, AbstractIntRes, AbstractIntResMesh, Collocation, Galerkin, AbstractDAIR, DAIR, DAIRFeas, DAIROpti, QPM, SAIR, SAPM
 export AbstractBounds, AbstractBoundsMesh, ExactBounds, SampledBounds, BernsteinBounds
 export AbstractIntervals, AbstractIntervalsMesh, FixedIntervals, FlexibleIntervals
 export @variable

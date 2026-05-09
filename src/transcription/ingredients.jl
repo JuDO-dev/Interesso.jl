@@ -386,7 +386,7 @@ function transcribe_dif_cons!(
     n_p_alg = get_points_alg_length(mesh)
 
     for q in 1:n_p_alg
-        for (dif_fun, set, scaling) in values(dif_cons)
+        for (dif_fun, _, scaling) in values(dif_cons)
             dif_con = transcribe_dyn_fun(
                 dif_fun, i, q, model.phase_vars, model.time_vars[phase],
                 model.dyn_var_vars, model.dif_dyn_vars, mesh
@@ -396,7 +396,7 @@ function transcribe_dif_cons!(
             MOI.add_constraint(
                 model.inner,
                 scaled_dif_con,
-                MOI.EqualTo(scaling * set.value),
+                MOI.EqualTo(0.0),
             )
             push!(model.res_funcs, scaled_dif_con)
         end
@@ -416,7 +416,7 @@ function transcribe_alg_cons!(
     n_p_alg = get_points_alg_length(mesh)
 
     for q in 1:n_p_alg
-        for (alg_fun, set, scaling) in values(alg_cons)
+        for (alg_fun, _, scaling) in values(alg_cons)
             alg_con = transcribe_dyn_fun(
                 alg_fun, i, q, model.phase_vars, model.time_vars[phase],
                 model.dyn_var_vars, model.dif_dyn_vars, mesh
@@ -426,7 +426,7 @@ function transcribe_alg_cons!(
             MOI.add_constraint(
                 model.inner,
                 scaled_alg_con,
-                MOI.EqualTo(scaling * set.value),
+                MOI.EqualTo(0.0),
             )
             push!(model.res_funcs, scaled_alg_con)
         end
@@ -435,6 +435,29 @@ function transcribe_alg_cons!(
 end
 
 # Integrated Residual, transcription of differentiation of residuals
+# Petrov-Galerkin, differential moment equations
+function transcribe_dif_cons!(
+    model::Optimizer,
+    i::Integer,
+    phase::PHS,
+    mesh::AbstractIntervalsMesh{PM,MM,BM},
+) where {PM,MM<:GalerkinMesh,BM}
+
+    method_mesh = get_method_mesh(mesh, i)
+
+    for (dif_fun, _, scaling) in values(model.dif_cons[phase])
+        for m in 1:size(method_mesh.test_values_dif, 1)
+            moment = transcribe_dif_moment(
+                model, dif_fun, scaling, i, m, phase, mesh
+            )
+            MOI.add_constraint(model.inner, moment, MOI.EqualTo(0.0))
+            push!(model.res_funcs, moment)
+        end
+    end
+
+    return nothing
+end
+
 function transcribe_dif_cons!(
     ::Optimizer,
     ::Integer,
@@ -476,12 +499,35 @@ function transcribe_dif_cons!(
 end
 
 # Integrated Residual, transcription of residuals
+# Petrov-Galerkin, algebraic moment equations
+function transcribe_alg_cons!(
+    model::Optimizer,
+    i::Integer,
+    phase::PHS,
+    mesh::AbstractIntervalsMesh{PM,MM,BM},
+) where {PM,MM<:GalerkinMesh,BM}
+
+    method_mesh = get_method_mesh(mesh, i)
+
+    for (alg_fun, _, scaling) in values(model.alg_cons[phase])
+        for m in 1:size(method_mesh.test_values_alg, 1)
+            moment = transcribe_alg_moment(
+                model, alg_fun, scaling, i, m, phase, mesh
+            )
+            MOI.add_constraint(model.inner, moment, MOI.EqualTo(0.0))
+            push!(model.res_funcs, moment)
+        end
+    end
+
+    return nothing
+end
+
 function transcribe_alg_cons!(
     ::Optimizer,
     ::Integer,
     ::PHS,
     ::AbstractIntervalsMesh{PM,MM,BM},
-) where {PM,MM<:Union{DAIRFeasMesh,QPMMesh,SAPMMesh},BM}
+) where {PM,MM<:Union{DAIRFeasMesh,QPMMesh,SAIRMesh,SAPMMesh},BM}
     return nothing
 end
 
@@ -489,55 +535,27 @@ function transcribe_alg_cons!(
     model::Optimizer,
     i::Integer,
     phase::PHS,
-    mesh::FixedIntervalsMesh{PM,MM,BM},
-) where {PM,MM<:Union{DAIROptiMesh,SAIRMesh},BM}
+    mesh::AbstractIntervalsMesh{PM,MM,BM},
+) where {PM,MM<:DAIROptiMesh,BM}
+
+    method_mesh = get_method_mesh(mesh, i)
 
     for (dif_fun, _, scaling) in values(model.dif_cons[phase])
-        f = transcribe_dif_least_square(model, dif_fun, scaling, i, phase, mesh) 
+        f = transcribe_dif_least_square(model, dif_fun, scaling, i, phase, mesh)
         MOI.add_constraint(
             model.inner,
             f,
-            MOI.LessThan(mesh.method_meshes[i].tolerance),
+            MOI.LessThan(method_mesh.tolerance),
         )
         push!(model.res_funcs, f)
     end
 
     for (alg_fun, _, scaling) in values(model.alg_cons[phase])
-        f = transcribe_alg_least_square(model, alg_fun, scaling, i, phase, mesh) 
+        f = transcribe_alg_least_square(model, alg_fun, scaling, i, phase, mesh)
         MOI.add_constraint(
             model.inner,
             f,
-            MOI.LessThan(mesh.method_meshes[i].tolerance),
-        )
-        push!(model.res_funcs, f)
-    end
-
-    return nothing
-end
-
-function transcribe_alg_cons!(
-    model::Optimizer,
-    i::Integer,
-    phase::PHS,
-    mesh::FlexibleIntervalsMesh{PM,MM,BM},
-) where {PM,MM<:Union{DAIROptiMesh,SAIRMesh},BM}
-
-    for (dif_fun, _, scaling) in values(model.dif_cons[phase])
-        f = transcribe_dif_least_square(model, dif_fun, scaling, i, phase, mesh) 
-        MOI.add_constraint(
-            model.inner,
-            f,
-            MOI.LessThan(mesh.method_mesh.tolerance),
-        )
-        push!(model.res_funcs, f)
-    end
-
-    for (alg_fun, _, scaling) in values(model.alg_cons[phase])
-        f = transcribe_alg_least_square(model, alg_fun, scaling, i, phase, mesh) 
-        MOI.add_constraint(
-            model.inner,
-            f,
-            MOI.LessThan(mesh.method_mesh.tolerance),
+            MOI.LessThan(method_mesh.tolerance),
         )
         push!(model.res_funcs, f)
     end
@@ -572,7 +590,7 @@ function transcribe_path_cons!(
     i::Integer,
     phase::PHS,
     mesh::AbstractIntervalsMesh{PM,MM,BM},
-) where {PM,MM<:AbstractDAIRMesh,BM}
+) where {PM,MM<:AbstractIntResMesh,BM}
 
     path_cons = model.path_cons[phase]
     n_p_quad = get_points_quad_length(mesh)

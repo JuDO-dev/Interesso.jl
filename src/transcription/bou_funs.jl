@@ -277,6 +277,68 @@ function transcribe_integral(
     )
 end
 
+
+# Petrov-Galerkin residual moments
+function transcribe_dif_moment(
+    model::Optimizer,
+    dif_fun::DIF_FUN,
+    scaling::Float64,
+    i::Integer,
+    m::Integer,
+    phase::PHS,
+    mesh::AbstractIntervalsMesh{PM,MM,BM},
+) where {PM,MM<:GalerkinMesh,BM}
+
+    n_p_quad = get_points_quad_length(mesh)
+    method_mesh = get_method_mesh(mesh, i)
+
+    return MOI.ScalarNonlinearFunction(
+        :+,
+        [
+            MOI.ScalarNonlinearFunction(:*, Any[
+                method_mesh.quad_points_mesh.quad_weights[q] * method_mesh.test_values_dif[m, q],
+                apply_scaling(
+                    transcribe_dyn_fun(
+                        dif_fun, i, q, model.phase_vars, model.time_vars[phase],
+                        model.dyn_var_vars, model.dif_dyn_vars, mesh
+                    ),
+                    scaling,
+                ),
+            ]) for q in 1:n_p_quad
+        ],
+    )
+end
+
+function transcribe_alg_moment(
+    model::Optimizer,
+    alg_fun::NDF,
+    scaling::Float64,
+    i::Integer,
+    m::Integer,
+    phase::PHS,
+    mesh::AbstractIntervalsMesh{PM,MM,BM},
+) where {PM,MM<:GalerkinMesh,BM}
+
+    n_p_quad = get_points_quad_length(mesh)
+    method_mesh = get_method_mesh(mesh, i)
+
+    return MOI.ScalarNonlinearFunction(
+        :+,
+        [
+            MOI.ScalarNonlinearFunction(:*, Any[
+                method_mesh.quad_points_mesh.quad_weights[q] * method_mesh.test_values_alg[m, q],
+                apply_scaling(
+                    transcribe_dyn_fun(
+                        alg_fun, i, q, model.phase_vars, model.time_vars[phase],
+                        model.dyn_var_vars, model.dif_dyn_vars, mesh
+                    ),
+                    scaling,
+                ),
+            ]) for q in 1:n_p_quad
+        ],
+    )
+end
+
 # Bolza
 function transcribe_bou_fun(bolza::BOLZA, model::Optimizer, meshes::MESHES)
     return MOI.ScalarNonlinearFunction(
@@ -301,47 +363,17 @@ function transcribe_dif_least_square(
     scaling::Float64,
     i::Integer,
     phase::PHS,
-    mesh::FixedIntervalsMesh{PM,MM,BM},
+    mesh::AbstractIntervalsMesh{PM,MM,BM},
 ) where {PM,MM<:AbstractIntResMesh,BM}
 
     n_p_quad = get_points_quad_length(mesh)
-
-    return MOI.ScalarNonlinearFunction(
-        :+,
-        [
-            MOI.ScalarNonlinearFunction(:*, [
-                mesh.method_meshes[i].quad_points_mesh.quad_weights[q],
-                MOI.ScalarNonlinearFunction(:^, [
-                    apply_scaling(
-                        transcribe_dyn_fun(
-                            dif_fun, i, q, model.phase_vars, model.time_vars[phase],
-                            model.dyn_var_vars, model.dif_dyn_vars, mesh
-                        ),
-                        scaling,
-                    ),
-                    2.0
-                ])
-            ]) for q in 1:n_p_quad
-        ]
-    ) 
-end
-
-function transcribe_dif_least_square(
-    model::Optimizer,
-    dif_fun::DIF_FUN,
-    scaling::Float64,
-    i::Integer,
-    phase::PHS,
-    mesh::FlexibleIntervalsMesh{PM,MM,BM},
-) where {PM,MM<:AbstractIntResMesh,BM}
-
-    n_p_quad = get_points_quad_length(mesh)
+    method_mesh = get_method_mesh(mesh, i)
     
     return MOI.ScalarNonlinearFunction(
         :+,
         [
             MOI.ScalarNonlinearFunction(:*, [
-                mesh.method_mesh.quad_points_mesh.quad_weights[q],
+                method_mesh.quad_points_mesh.quad_weights[q],
                 MOI.ScalarNonlinearFunction(:^, [
                     apply_scaling(
                         transcribe_dyn_fun(
@@ -398,47 +430,17 @@ function transcribe_alg_least_square(
     scaling::Float64,
     i::Integer,
     phase::PHS,
-    mesh::FixedIntervalsMesh{PM,MM,BM},
+    mesh::AbstractIntervalsMesh{PM,MM,BM},
 ) where {PM,MM<:AbstractIntResMesh,BM}
 
     n_p_quad = get_points_quad_length(mesh)
-
-    return MOI.ScalarNonlinearFunction(
-        :+,
-        [
-            MOI.ScalarNonlinearFunction(:*, [
-                mesh.method_meshes[i].quad_points_mesh.quad_weights[q],
-                MOI.ScalarNonlinearFunction(:^, [
-                    apply_scaling(
-                        transcribe_dyn_fun(
-                            alg_fun, i, q, model.phase_vars, model.time_vars[phase],
-                            model.dyn_var_vars, model.dif_dyn_vars, mesh
-                        ),
-                        scaling,
-                    ),
-                    2.0
-                ])
-            ]) for q in 1:n_p_quad
-        ]
-    ) 
-end
-
-function transcribe_alg_least_square(
-    model::Optimizer,
-    alg_fun::NDF,
-    scaling::Float64,
-    i::Integer,
-    phase::PHS,
-    mesh::FlexibleIntervalsMesh{PM,MM,BM},
-) where {PM,MM<:AbstractIntResMesh,BM}
-
-    n_p_quad = get_points_quad_length(mesh)
+    method_mesh = get_method_mesh(mesh, i)
     
     return MOI.ScalarNonlinearFunction(
         :+,
         [
             MOI.ScalarNonlinearFunction(:*, [
-                mesh.method_mesh.quad_points_mesh.quad_weights[q],
+                method_mesh.quad_points_mesh.quad_weights[q],
                 MOI.ScalarNonlinearFunction(:^, [
                     apply_scaling(
                         transcribe_dyn_fun(
@@ -614,7 +616,7 @@ function _get_interval_dyn_vars(
     for dyn_var in model.dyn_vars[phase]
         if dyn_var in model.dif_dyn_vars
             append!(interval_vars, model.dyn_var_vars[dyn_var][i])
-            filter!(var -> (var != model.dyn_var_vars[dyn_var][i][1]), interval_vars)  # remove the one for continuity
+            filter!(var -> (var != model.dyn_var_vars[dyn_var][i][1]), interval_vars)  # remove the first one for continuity
         end
     end
 

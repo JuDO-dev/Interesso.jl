@@ -147,7 +147,7 @@ function get_dual(model::Interesso.Optimizer)
         dual[(F,S)] = Float64.(MOI.get(model.inner, MOI.ConstraintDual(), cons))
     end
 
-    dual[_NLPBLOCK_DUAL_KEY] = Float64.(MOI.get(model.inner, MOI.NLPBlockDual()))
+    dual[_NLPBLOCK_DUAL_KEY] = get_nlpblock_dual(model)
 
     return dual
 end
