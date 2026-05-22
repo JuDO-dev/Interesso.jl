@@ -14,6 +14,7 @@ include(joinpath(@__DIR__, "cart_pole.jl"))
 include(joinpath(@__DIR__, "cart_pole_implicit.jl"))
 include(joinpath(@__DIR__, "double_integrator.jl"))
 include(joinpath(@__DIR__, "fuller.jl"))
+include(joinpath(@__DIR__, "goddard_rocket.jl"))
 include(joinpath(@__DIR__, "hyper_sensitive.jl"))
 include(joinpath(@__DIR__, "lqr.jl"))
 include(joinpath(@__DIR__, "orbit_raising.jl"))
@@ -36,37 +37,45 @@ end
 
 optimizer = SLOW.Optimizer()
 MOI.set(optimizer,
-    "dual"     => true,
+    "dual"     => false,
     "ρ0"       => 10,
     "h_norm"   => 2,
     "γ"        => 1.0,
-    "solver"   => "Clarabel",
+    "solver"   => "FBstab",
     "max_iter" => 1000,
     "max_time" => Inf,
     "verbose"  => false,
     "scaling"  => "none",
-    "logging"  => 2,
+    "logging"  => 2
 )
 
 optimizer = Ipopt.Optimizer()
-MOI.set(optimizer, "max_iter" => 2000)
+MOI.set(optimizer, "max_iter" => 1000)
 
 primal = nothing
+# @load joinpath(@__DIR__, "van_der_pol.jld2") primal
+# @load joinpath(@__DIR__, "goddard_rocket_galerkin.jld2") primal
+# @load joinpath(@__DIR__, "orbit_raising_galerkin.jld2") primal
 
 model = Interesso.Optimizer(
     inner=optimizer,
     # default_intervals=FlexibleIntervals(10, 0.1),
     default_intervals=FixedIntervals(50),
-    # default_points=LGRPoints(3),
+    default_points=LGRPoints(3),
     # default_method=Collocation(),
     # default_method=DAIROpti(5),
-    default_method=Galerkin(5)
-    # default_method=QPM(5;penalty=0.0001),
-    # default_method=SAIR(5),
+    # default_method=Galerkin(5),
+    # default_method=QPM(5;penalty=1000),
+    default_method=SAIR(5),
+    # default_method=SAPM(10;penalty=0),
     # default_bounds=SampledBounds(9)
 )
 
-van_der_pol(model)
+lqr(model)
+# cart_pole(model)
+# orbit_raising(model)
+# van_der_pol(model)
+# goddard_rocket(model)
 
 MOI.optimize!(model; primal)
 

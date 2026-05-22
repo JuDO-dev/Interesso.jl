@@ -20,9 +20,12 @@ function assess_solution(model::Optimizer; q::Integer=10)
     return (residuals, solution_error, residual_error, quad_error)
 end
 
-function eval_funcs(optimizer::MOI.ModelLike, funcs::Vector{<:MOI.AbstractFunction})
+function eval_funcs(
+    optimizer::MOI.ModelLike,
+    funcs::Vector{<:MOI.AbstractFunction},
+    x_vals::Vector{Float64},
+)
     var_idxs = MOI.get(optimizer, MOI.ListOfVariableIndices())
-    x_vals   = MOI.get(optimizer, MOI.VariablePrimal(), var_idxs)
 
     nl = MOI.Nonlinear.Model()
     backend = MOI.Nonlinear.SparseReverseMode()
@@ -37,6 +40,12 @@ function eval_funcs(optimizer::MOI.ModelLike, funcs::Vector{<:MOI.AbstractFuncti
     MOI.eval_constraint(evaluator, eval, x_vals)
 
     return eval
+end
+
+function eval_funcs(optimizer::MOI.ModelLike, funcs::Vector{<:MOI.AbstractFunction})
+    var_idxs = MOI.get(optimizer, MOI.ListOfVariableIndices())
+    x_vals   = MOI.get(optimizer, MOI.VariablePrimal(), var_idxs)
+    return eval_funcs(optimizer, funcs, Float64.(x_vals))
 end
 
 function eval_accuracy(model::Optimizer; q::Integer=10)

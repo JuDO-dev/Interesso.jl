@@ -389,16 +389,15 @@ function transcribe_dif_cons!(
         for (dif_fun, _, scaling) in values(dif_cons)
             dif_con = transcribe_dyn_fun(
                 dif_fun, i, q, model.phase_vars, model.time_vars[phase],
-                model.dyn_var_vars, model.dif_dyn_vars, mesh
+                model.dyn_var_vars, model.dif_dyn_vars, mesh, scaling
             )
-            scaled_dif_con = apply_scaling(dif_con, scaling)
 
             MOI.add_constraint(
                 model.inner,
-                scaled_dif_con,
+                dif_con,
                 MOI.EqualTo(0.0),
             )
-            push!(model.res_funcs, scaled_dif_con)
+            push!(model.res_funcs, dif_con)
         end
     end
     return nothing
@@ -419,16 +418,15 @@ function transcribe_alg_cons!(
         for (alg_fun, _, scaling) in values(alg_cons)
             alg_con = transcribe_dyn_fun(
                 alg_fun, i, q, model.phase_vars, model.time_vars[phase],
-                model.dyn_var_vars, model.dif_dyn_vars, mesh
+                model.dyn_var_vars, model.dif_dyn_vars, mesh, scaling
             )
-            scaled_alg_con = apply_scaling(alg_con, scaling)
 
             MOI.add_constraint(
                 model.inner,
-                scaled_alg_con,
+                alg_con,
                 MOI.EqualTo(0.0),
             )
-            push!(model.res_funcs, scaled_alg_con)
+            push!(model.res_funcs, alg_con)
         end
     end
     return nothing

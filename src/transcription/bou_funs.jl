@@ -297,12 +297,9 @@ function transcribe_dif_moment(
         [
             MOI.ScalarNonlinearFunction(:*, Any[
                 method_mesh.quad_points_mesh.quad_weights[q] * method_mesh.test_values_dif[m, q],
-                apply_scaling(
-                    transcribe_dyn_fun(
-                        dif_fun, i, q, model.phase_vars, model.time_vars[phase],
-                        model.dyn_var_vars, model.dif_dyn_vars, mesh
-                    ),
-                    scaling,
+                transcribe_dyn_fun(
+                    dif_fun, i, q, model.phase_vars, model.time_vars[phase],
+                    model.dyn_var_vars, model.dif_dyn_vars, mesh, scaling
                 ),
             ]) for q in 1:n_p_quad
         ],
@@ -327,13 +324,10 @@ function transcribe_alg_moment(
         [
             MOI.ScalarNonlinearFunction(:*, Any[
                 method_mesh.quad_points_mesh.quad_weights[q] * method_mesh.test_values_alg[m, q],
-                apply_scaling(
-                    transcribe_dyn_fun(
-                        alg_fun, i, q, model.phase_vars, model.time_vars[phase],
-                        model.dyn_var_vars, model.dif_dyn_vars, mesh
-                    ),
-                    scaling,
-                ),
+                transcribe_dyn_fun(
+                    alg_fun, i, q, model.phase_vars, model.time_vars[phase],
+                    model.dyn_var_vars, model.dif_dyn_vars, mesh, scaling
+                )
             ]) for q in 1:n_p_quad
         ],
     )
@@ -351,12 +345,6 @@ function transcribe_bou_fun(bolza::BOLZA, model::Optimizer, meshes::MESHES)
 end
 
 # least-square dynamics
-function apply_scaling(residual::T, scaling::Float64) where {T<:MOI.AbstractFunction}
-    return scaling == 1.0 ?
-           residual :
-           MOI.ScalarNonlinearFunction(:*, Any[scaling, residual])
-end
-
 function transcribe_dif_least_square(
     model::Optimizer,
     dif_fun::DIF_FUN,
@@ -375,12 +363,9 @@ function transcribe_dif_least_square(
             MOI.ScalarNonlinearFunction(:*, [
                 method_mesh.quad_points_mesh.quad_weights[q],
                 MOI.ScalarNonlinearFunction(:^, [
-                    apply_scaling(
-                        transcribe_dyn_fun(
-                            dif_fun, i, q, model.phase_vars, model.time_vars[phase],
-                            model.dyn_var_vars, model.dif_dyn_vars, mesh
-                        ),
-                        scaling,
+                    transcribe_dyn_fun(
+                        dif_fun, i, q, model.phase_vars, model.time_vars[phase],
+                        model.dyn_var_vars, model.dif_dyn_vars, mesh, scaling
                     ),
                     2.0
                 ])
@@ -442,12 +427,9 @@ function transcribe_alg_least_square(
             MOI.ScalarNonlinearFunction(:*, [
                 method_mesh.quad_points_mesh.quad_weights[q],
                 MOI.ScalarNonlinearFunction(:^, [
-                    apply_scaling(
-                        transcribe_dyn_fun(
-                            alg_fun, i, q, model.phase_vars, model.time_vars[phase],
-                            model.dyn_var_vars, model.dif_dyn_vars, mesh
-                        ),
-                        scaling,
+                    transcribe_dyn_fun(
+                        alg_fun, i, q, model.phase_vars, model.time_vars[phase],
+                        model.dyn_var_vars, model.dif_dyn_vars, mesh, scaling
                     ),
                     2.0
                 ])
@@ -541,25 +523,17 @@ function transcribe_grad_dif_dyn(
     mesh::AbstractIntervalsMesh{PM,MM,BM},
 ) where {PM,MM<:AbstractIntResMesh,BM}
 
-"""
-    for an interval i, it will include unique(dyn_var_vars[all dyn_vars][i]) optimizers
-    
-    the residual sum of an interval is, providing i, (phase, mesh) from meshes
-
-    MOI.ScalarNonlinearFunction(
-        :+,
-        [
-            transcribe_dyn_least_square(model, i, phase, mesh)
-        ]
-    )
-"""
-
     grad_res_funcs = Vector{MOI.AbstractFunction}()
     vars = _get_interval_dyn_vars(model, i, phase)
     dyn_res = transcribe_dyn_least_square(model, i, phase, mesh)
+    path_terms = _path_multiplier_terms!(model, i, phase, mesh, vars)
 
-    for dyn_var in vars   
+    for dyn_var in vars
         func = MOI.Nonlinear.SymbolicAD.derivative(dyn_res, dyn_var)
+        if haskey(path_terms, dyn_var)
+            func = MOI.ScalarNonlinearFunction(:+, Any[func, path_terms[dyn_var]])
+        end
+
         push!(grad_res_funcs, func)
     end
 
@@ -623,4 +597,121 @@ function _get_interval_dyn_vars(
     unique!(interval_vars)
 
     return unique!(interval_vars)
+end
+
+function _add_nonnegative_variable!(model::Optimizer)
+    μ = MOI.add_variable(model.inner)
+    MOI.set(model.inner, MOI.VariablePrimalStart(), μ, 0.0)
+    MOI.add_constraint(model.inner, μ, MOI.GreaterThan(0.0))
+    return MOI.ScalarNonlinearFunction(:+, [μ])
+end
+
+# function _add_nonnegative_variable!(model::Optimizer)
+#     μ = MOI.add_variable(model.inner)
+#     return MOI.ScalarNonlinearFunction(:^, [μ, 2.0])
+# end
+
+function _add_complementarity!(
+    model::Optimizer,
+    μ::MOI.ScalarNonlinearFunction,
+    residual::MOI.ScalarNonlinearFunction,
+)
+    comp = MOI.ScalarNonlinearFunction(:*, Any[μ, residual])
+    MOI.add_constraint(model.inner, comp, MOI.EqualTo(0.0))
+    return comp
+end
+
+function _path_upper_residual(path_con::MOI.ScalarNonlinearFunction, upper::Float64)
+    return MOI.ScalarNonlinearFunction(:-, Any[path_con, upper])
+end
+
+function _path_lower_residual(path_con::MOI.ScalarNonlinearFunction, lower::Float64)
+    return MOI.ScalarNonlinearFunction(:-, Any[lower, path_con])
+end
+
+function _accumulate_path_derivative_term!(
+    terms::Dict{VAR,MOI.AbstractFunction},
+    var::VAR,
+    op::Symbol,
+    term::MOI.AbstractFunction,
+)
+    if haskey(terms, var)
+        terms[var] = MOI.ScalarNonlinearFunction(op, Any[terms[var], term])
+    elseif op === :+
+        terms[var] = term
+    elseif op === :-
+        terms[var] = MOI.ScalarNonlinearFunction(:-, Any[term])
+    else
+        error("Unsupported path derivative operator: $(op)")
+    end
+
+    return nothing
+end
+
+function _add_path_derivative_term!(
+    terms::Dict{VAR,MOI.AbstractFunction},
+    var::VAR,
+    μ::MOI.ScalarNonlinearFunction,
+    op::Symbol,
+    path_con::MOI.ScalarNonlinearFunction,
+)
+    dpath = MOI.Nonlinear.SymbolicAD.derivative(path_con, var)
+    term = MOI.ScalarNonlinearFunction(:*, Any[μ, dpath])
+
+    return _accumulate_path_derivative_term!(terms, var, op, term)
+end
+
+function _path_multiplier_terms!(
+    model::Optimizer,
+    i::Integer,
+    phase::PHS,
+    mesh::AbstractIntervalsMesh{PM,MM,BM},
+    vars::Vector{VAR},
+) where {PM,MM<:AbstractIntResMesh,BM}
+
+    terms = Dict{VAR,MOI.AbstractFunction}()
+    n_p_quad = get_points_quad_length(mesh)
+
+    for q in 1:n_p_quad
+        for (path_fun, set) in values(model.path_cons[phase])
+            path_con = transcribe_dyn_fun(
+                path_fun, i, q, model.phase_vars, model.time_vars[phase],
+                model.dyn_var_vars, model.dif_dyn_vars, mesh,
+            )
+
+            if set isa LE64
+                μ = _add_nonnegative_variable!(model)
+                residual = _path_upper_residual(path_con, set.upper)
+                _add_complementarity!(model, μ, residual)
+                for var in vars
+                    _add_path_derivative_term!(terms, var, μ, :+, path_con)
+                end
+
+            elseif set isa GE64
+                μ = _add_nonnegative_variable!(model)
+                residual = _path_lower_residual(path_con, set.lower)
+                _add_complementarity!(model, μ, residual)
+                for var in vars
+                    _add_path_derivative_term!(terms, var, μ, :-, path_con)
+                end
+
+            elseif set isa IV64
+                μ = _add_nonnegative_variable!(model)
+                residual = _path_lower_residual(path_con, set.lower)
+                _add_complementarity!(model, μ, residual)
+                for var in vars
+                    _add_path_derivative_term!(terms, var, μ, :-, path_con)
+                end
+
+                μ = _add_nonnegative_variable!(model)
+                residual = _path_upper_residual(path_con, set.upper)
+                _add_complementarity!(model, μ, residual)
+                for var in vars
+                    _add_path_derivative_term!(terms, var, μ, :+, path_con)
+                end
+            end
+        end
+    end
+
+    return terms
 end

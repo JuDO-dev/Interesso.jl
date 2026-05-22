@@ -46,6 +46,7 @@ function transcribe_penalty_terms(
     mesh::AbstractIntervalsMesh{PM,MM,BM},
 ) where {PM,MM<:Union{QPMMesh,SAPMMesh},BM}
     method_mesh = get_method_mesh(mesh, 1)
+    penalty = model.objective_sense == MOI.MAX_SENSE ? -method_mesh.penalty : method_mesh.penalty
     pen_fun = transcribe_dyn_least_square(model, phase, mesh)
-    return MOI.ScalarNonlinearFunction(:*, [method_mesh.penalty, pen_fun])
+    return MOI.ScalarNonlinearFunction(:*, [penalty, pen_fun])
 end

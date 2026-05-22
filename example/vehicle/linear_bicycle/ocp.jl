@@ -64,7 +64,7 @@ linear_bicycle(model, trackfile)
 MOI.optimize!(model; primal)
 
 # primal = get_primal(model)
-# @save joinpath(@__DIR__, "race_car_primals.jld2") primal
+# @save joinpath(@__DIR__, "example/vehicle/linear_bicycle/race_car_primals.jld2") primal
 
 # (_, R, _, _) = assess_solution(model);
 # res = Float64[]

@@ -200,7 +200,7 @@ end
 
 # Nonlinear Dynamic Function
 function transcribe_dyn_fun(
-    nl_dyn_fun::DOI.NonlinearDynamicFunction,
+    nl_dyn_fun::NDF,
     i::Integer,
     q::Integer,
     phase_vars::PHS_VARS,
@@ -276,6 +276,26 @@ function transcribe_dyn_fun(
             ),
         ]),
     ])
+end
+
+function transcribe_dyn_fun(
+    nl_fun::T,
+    i::Integer,
+    q::Integer,
+    phase_vars::PHS_VARS,
+    time_var::TIME_VAR,
+    dyn_var_vars::DYN_VAR_VARS,
+    dif_dyn_vars::AbstractSet{DYN_VAR},
+    mesh::AbstractIntervalsMesh,
+    scaling::Float64
+) where {T<:Union{NDF,DIF_FUN}}
+
+    f = transcribe_dyn_fun(nl_fun, i, q, phase_vars, time_var, dyn_var_vars, dif_dyn_vars, mesh)
+    if scaling == 1.0
+        return f
+    else
+        return MOI.ScalarNonlinearFunction(:*, [scaling, f])
+    end
 end
 
 function get_time_length(

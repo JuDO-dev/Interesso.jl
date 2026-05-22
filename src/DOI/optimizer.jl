@@ -59,8 +59,8 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
 
     function Optimizer(;
         inner::MOI.ModelLike=Ipopt.Optimizer(),
-        default_intervals::AbstractIntervals=FixedIntervals(1),
-        default_points::AbstractPoints=LGRPoints(5),
+        default_intervals::AbstractIntervals=FixedIntervals(50),
+        default_points::AbstractPoints=LGRPoints(3),
         default_method::AbstractMethod=Collocation(),
         default_bounds::AbstractBounds=ExactBounds(),
     )
