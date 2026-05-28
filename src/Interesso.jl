@@ -25,7 +25,6 @@ include("transcription/bou_funs.jl")
 include("transcription/objective.jl")
 include("transcription/ingredients.jl")
 include("transcription/sol_dyn_var.jl")
-include("transcription/sol_derivative.jl")
 
 include("post_solve/post_analyze.jl")
 include("post_solve/mesh_refinement.jl")

@@ -84,7 +84,6 @@ function DOI.add_phase(model::Optimizer)
     model.path_cons[phase]        = PATH_CONS()
     model.start_dyn_vars[phase]   = STARTS()
     model.sol_dyn_vars[phase]     = SOLS{DYN_VAR}()
-    model.sol_derivatives[phase]  = SOLS{DOI.Derivative{DYN_VAR}}()
 
     model.last_index_phases += 1
     

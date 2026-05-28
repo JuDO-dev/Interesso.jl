@@ -62,14 +62,6 @@ function save_solutions!(model::Optimizer)
 
         for dyn_var in model.dyn_vars[phase]
             transcribe_sol_dyn_var!(model, time_var, phase, dyn_var)
-            if dyn_var in model.dif_dyn_vars
-                transcribe_sol_derivative!(
-                    model,
-                    time_var,
-                    phase,
-                    DOI.Derivative(dyn_var),
-                )
-            end
         end
     end
 
@@ -96,14 +88,6 @@ function normalize_solutions!(model::Optimizer)
     for phase in model.phases
         for dyn_var in model.dyn_vars[phase]
             transcribe_sol_dyn_var!(model, 1.0, phase, dyn_var)
-            if dyn_var in model.dif_dyn_vars
-                transcribe_sol_derivative!(
-                    model,
-                    1.0,
-                    phase,
-                    DOI.Derivative(dyn_var),
-                )
-            end
         end
     end
     return nothing

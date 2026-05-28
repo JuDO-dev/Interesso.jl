@@ -397,7 +397,6 @@ function transcribe_dif_cons!(
                 dif_con,
                 MOI.EqualTo(0.0),
             )
-            push!(model.res_funcs, dif_con)
         end
     end
     return nothing
@@ -426,7 +425,6 @@ function transcribe_alg_cons!(
                 alg_con,
                 MOI.EqualTo(0.0),
             )
-            push!(model.res_funcs, alg_con)
         end
     end
     return nothing
@@ -449,7 +447,6 @@ function transcribe_dif_cons!(
                 model, dif_fun, scaling, i, m, phase, mesh
             )
             MOI.add_constraint(model.inner, moment, MOI.EqualTo(0.0))
-            push!(model.res_funcs, moment)
         end
     end
 
@@ -480,7 +477,6 @@ function transcribe_dif_cons!(
             f,
             MOI.EqualTo(0.0)
         )
-        push!(model.dif_res_funcs, f)
     end
 
     if i == get_intervals_length(mesh)
@@ -488,7 +484,6 @@ function transcribe_dif_cons!(
             dyn_res = transcribe_dyn_least_square(model, phase, mesh)
             var = model.time_vars[phase]
             func_t = MOI.Nonlinear.SymbolicAD.derivative(dyn_res, var)
-            push!(grad_res_funcs, func_t)
             MOI.add_constraint(model.inner, func_t, MOI.EqualTo(0.0))
         end
     end
@@ -513,7 +508,6 @@ function transcribe_alg_cons!(
                 model, alg_fun, scaling, i, m, phase, mesh
             )
             MOI.add_constraint(model.inner, moment, MOI.EqualTo(0.0))
-            push!(model.res_funcs, moment)
         end
     end
 
@@ -528,13 +522,11 @@ function transcribe_alg_cons!(
 ) where {PM,MM<:Union{DAIRFeasMesh,QPMMesh,SAIRMesh,SAPMMesh},BM}
 
     for (dif_fun, _, scaling) in values(model.dif_cons[phase])
-        f = transcribe_dif_least_square(model, dif_fun, scaling, i, phase, mesh)
-        push!(model.res_funcs, f)
+        transcribe_dif_least_square(model, dif_fun, scaling, i, phase, mesh)
     end
 
     for (alg_fun, _, scaling) in values(model.alg_cons[phase])
-        f = transcribe_alg_least_square(model, alg_fun, scaling, i, phase, mesh)
-        push!(model.res_funcs, f)
+        transcribe_alg_least_square(model, alg_fun, scaling, i, phase, mesh)
     end
 
     return nothing
@@ -560,7 +552,6 @@ function transcribe_alg_cons!(
             f,
             MOI.LessThan(tol),
         )
-        push!(model.res_funcs, f)
     end
 
     for (alg_fun, _, scaling) in values(model.alg_cons[phase])
@@ -574,7 +565,6 @@ function transcribe_alg_cons!(
             f,
             MOI.LessThan(tol),
         )
-        push!(model.res_funcs, f)
     end
 
     return nothing

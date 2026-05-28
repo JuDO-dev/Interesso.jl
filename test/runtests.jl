@@ -26,6 +26,6 @@ include(joinpath(@__DIR__, "..", "example", "cart_pole.jl"))
     status = MOI.get(model.inner, MOI.TerminationStatus())
     @test status in (MOI.OPTIMAL, MOI.LOCALLY_SOLVED)
 
-    _eval = eval_funcs(model.inner, model.res_funcs)
-    @test all(_eval .≤ 1e-1)
+    @test (assess_solution(model)[2] < 1e-4)
+
 end

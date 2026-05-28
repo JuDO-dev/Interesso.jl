@@ -6,18 +6,49 @@ struct IntervalResidual
     interval_residual::Vector{Float64}
 end
 
-function assess_solution(model::Optimizer; q::Integer=10)
+function assess_solution(
+    model::Optimizer;
+    q::Integer=10,
+    dump::Union{Nothing,AbstractString}=nothing,
+)
 
     residuals = eval_accuracy(model; q)
     solution_error = sum(sum(r.interval_residual) for r in residuals)
-    residual_error = sum(abs, eval_funcs(model.inner, model.res_funcs))
+    node_residuals = eval_node_residuals(model)
+    residual_error = sum(sum(r.interval_residual) for r in node_residuals)
     quad_error = abs(solution_error - residual_error)
 
     println("Solution Error: ", solution_error)
     println("Residual Error: ", residual_error)
     println("Quadrature Error: ", quad_error)
 
+    if dump !== nothing
+        _dump_residuals(dump, node_residuals, residuals)
+        println("Wrote per-node residuals to ", dump)
+    end
+
     return (residuals, solution_error, residual_error, quad_error)
+end
+
+function _dump_residuals(
+    filename::AbstractString,
+    node_residuals::Vector{IntervalResidual},
+    fine_residuals::Vector{IntervalResidual},
+)
+    open(filename, "w") do io
+        println(io, "source,phase,label,node_idx,t,r2")
+        for r in node_residuals
+            for (k, (t, r2)) in enumerate(zip(r.nodes, r.residual))
+                println(io, "node,", r.phase, ",", r.label, ",", k, ",", t, ",", r2)
+            end
+        end
+        for r in fine_residuals
+            for (k, (t, r2)) in enumerate(zip(r.nodes, r.residual))
+                println(io, "fine,", r.phase, ",", r.label, ",", k, ",", t, ",", r2)
+            end
+        end
+    end
+    return nothing
 end
 
 function eval_funcs(
@@ -46,6 +77,28 @@ function eval_funcs(optimizer::MOI.ModelLike, funcs::Vector{<:MOI.AbstractFuncti
     var_idxs = MOI.get(optimizer, MOI.ListOfVariableIndices())
     x_vals   = MOI.get(optimizer, MOI.VariablePrimal(), var_idxs)
     return eval_funcs(optimizer, funcs, Float64.(x_vals))
+end
+
+function eval_node_residuals(model::Optimizer)
+    results = IntervalResidual[]
+    for phase in model.phases
+        points = get(model.phase_points, phase, model.default_points)
+        ω = points.quad_weights_τ
+        τ_alg = points.points_alg_τ
+        if length(points.points_dif_τ) == length(points.points_alg_τ)
+            τ_dif = points.points_dif_τ
+        else
+            τ_dif = points.points_dif_τ[1:end-1]
+        end
+
+        for (_, (dif_fun, _, _)) in model.dif_cons[phase]
+            push!(results, _eval_residual_function(model, phase, dif_fun, τ_dif, ω))
+        end
+        for (_, (alg_fun, set, _)) in model.alg_cons[phase]
+            push!(results, _eval_residual_function(model, phase, alg_fun, set, τ_alg, ω))
+        end
+    end
+    return results
 end
 
 function eval_accuracy(model::Optimizer; q::Integer=10)
@@ -232,6 +285,33 @@ function _evaluate_value(
     sol::PiecewiseInterpolant{LagrangeInterpolant},
     t::Float64,
 )
+    idx, t_eval = _select_piece(sol, t)
+    return sol.pieces[idx](t_eval)
+end
+
+function _evaluate_derivative(
+    sol::PiecewiseInterpolant{LagrangeInterpolant},
+    t::Float64,
+)
+    idx, t_eval = _select_piece(sol, t)
+    piece = sol.pieces[idx]
+    n = length(piece.points)
+    d_values = Vector{Float64}(undef, n)
+    for j in 1:n
+        wj = piece.weights[j]
+        yj = piece.values[j]
+        s = 0.0
+        for k in 1:n
+            k == j && continue
+            s += (piece.weights[k] / wj) / (piece.points[j] - piece.points[k]) *
+                (piece.values[k] - yj)
+        end
+        d_values[j] = s
+    end
+    return _interpolate(piece.points, piece.weights, d_values, t_eval)
+end
+
+function _select_piece(sol::PiecewiseInterpolant, t::Float64)
     idx = searchsortedlast(sol.pieces_initials, t)
     idx = clamp(idx, 1, length(sol.pieces))
     t_eval = t
@@ -245,7 +325,7 @@ function _evaluate_value(
         end
     end
 
-    return sol.pieces[idx](t_eval)
+    return idx, t_eval
 end
 
 function _get_dyn_var_solution(model::Optimizer, phase::PHS, dyn_var::DYN_VAR)
@@ -254,18 +334,6 @@ function _get_dyn_var_solution(model::Optimizer, phase::PHS, dyn_var::DYN_VAR)
         throw(ArgumentError("No solution stored for dynamic variable $(dyn_var)."))
     end
     return sol_by_phase[dyn_var]
-end
-
-function _get_derivative_solution(model::Optimizer, phase::PHS, dyn_var::DYN_VAR)
-    derivative_solutions = get(model.sol_derivatives, phase, nothing)
-    if derivative_solutions === nothing
-        throw(ArgumentError("No derivative solutions stored for phase $(phase)."))
-    end
-    derivative_index = DOI.Derivative(dyn_var)
-    if !haskey(derivative_solutions, derivative_index)
-        throw(ArgumentError("No derivative solution stored for dynamic variable $(dyn_var)."))
-    end
-    return derivative_solutions[derivative_index]
 end
 
 function _evaluate_differential_residual(
@@ -291,8 +359,8 @@ function _evaluate_dynamic_function(
         return _evaluate_value(sol, t)
     elseif fun isa DOI.Derivative{DYN_VAR}
         phase = DOI.phase_index(fun)
-        derivative_sol = _get_derivative_solution(model, phase, fun.dyn_fun)
-        derivative_value = derivative_sol(t)
+        sol = _get_dyn_var_solution(model, phase, fun.dyn_fun)
+        derivative_value = _evaluate_derivative(sol, t)
         scale = _get_phase_duration(model, phase)
         if scale == 0.0
             throw(DomainError(scale, "Phase duration must be nonzero."))

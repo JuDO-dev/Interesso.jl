@@ -48,17 +48,10 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
     phase_vars::PHS_VARS
     time_vars::TIME_VARS
     dyn_var_vars::DYN_VAR_VARS
+    lift_vars::Vector{VAR}
 
     # Solution
     sol_dyn_vars::OrderedDict{PHS,SOLS{DYN_VAR}}
-    sol_derivatives::OrderedDict{PHS,SOLS{DOI.Derivative{DYN_VAR}}}
-
-    # Lifted slack variables
-    lift_vars::Vector{VAR}
-
-    # Analyze
-    dif_res_funcs::Vector{MOI.AbstractFunction}
-    res_funcs::Vector{MOI.AbstractFunction}
 
     function Optimizer(;
         inner::MOI.ModelLike=Ipopt.Optimizer(),
@@ -124,11 +117,8 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
             PHS_VARS(),
             TIME_VARS(),
             DYN_VAR_VARS(),
-            OrderedDict{PHS,SOLS{DYN_VAR}}(),
-            OrderedDict{PHS,SOLS{DOI.Derivative{DYN_VAR}}}(),
             Vector{VAR}(),
-            Vector{MOI.AbstractFunction}(),
-            Vector{MOI.AbstractFunction}(),
+            OrderedDict{PHS,SOLS{DYN_VAR}}(),
         )
     end
 end
@@ -168,11 +158,8 @@ function MOI.empty!(model::Optimizer)
     empty!(model.phase_vars)
     empty!(model.time_vars)
     empty!(model.dyn_var_vars)
-    empty!(model.sol_dyn_vars)
-    empty!(model.sol_derivatives)
     empty!(model.lift_vars)
-    empty!(model.dif_res_funcs)
-    empty!(model.res_funcs)
+    empty!(model.sol_dyn_vars)
 
     return nothing
 end
@@ -196,8 +183,8 @@ function MOI.is_empty(model::Optimizer)
         isempty(model.phase_method)       && isempty(model.phase_bounds)       &&
         isempty(model.meshes)             && MOI.is_empty(model.inner)         && 
         isempty(model.phase_vars)         && isempty(model.time_vars)          &&
-        isempty(model.dyn_var_vars)       &&
-        isempty(model.sol_dyn_vars)       && isempty(model.sol_derivatives)
+        isempty(model.dyn_var_vars)       && isempty(model.lift_vars)          &&
+        isempty(model.sol_dyn_vars)
 end
 
 function reset!(model::Optimizer)
@@ -207,8 +194,6 @@ function reset!(model::Optimizer)
     empty!(model.time_vars)
     empty!(model.dyn_var_vars)
     empty!(model.lift_vars)
-    empty!(model.dif_res_funcs)
-    empty!(model.res_funcs)
     return nothing
 end
 
