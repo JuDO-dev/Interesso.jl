@@ -53,6 +53,9 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
     sol_dyn_vars::OrderedDict{PHS,SOLS{DYN_VAR}}
     sol_derivatives::OrderedDict{PHS,SOLS{DOI.Derivative{DYN_VAR}}}
 
+    # Lifted slack variables
+    lift_vars::Vector{VAR}
+
     # Analyze
     dif_res_funcs::Vector{MOI.AbstractFunction}
     res_funcs::Vector{MOI.AbstractFunction}
@@ -123,6 +126,7 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
             DYN_VAR_VARS(),
             OrderedDict{PHS,SOLS{DYN_VAR}}(),
             OrderedDict{PHS,SOLS{DOI.Derivative{DYN_VAR}}}(),
+            Vector{VAR}(),
             Vector{MOI.AbstractFunction}(),
             Vector{MOI.AbstractFunction}(),
         )
@@ -166,6 +170,7 @@ function MOI.empty!(model::Optimizer)
     empty!(model.dyn_var_vars)
     empty!(model.sol_dyn_vars)
     empty!(model.sol_derivatives)
+    empty!(model.lift_vars)
     empty!(model.dif_res_funcs)
     empty!(model.res_funcs)
 
@@ -201,6 +206,7 @@ function reset!(model::Optimizer)
     empty!(model.phase_vars)
     empty!(model.time_vars)
     empty!(model.dyn_var_vars)
+    empty!(model.lift_vars)
     empty!(model.dif_res_funcs)
     empty!(model.res_funcs)
     return nothing

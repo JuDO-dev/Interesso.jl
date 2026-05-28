@@ -521,11 +521,22 @@ function transcribe_alg_cons!(
 end
 
 function transcribe_alg_cons!(
-    ::Optimizer,
-    ::Integer,
-    ::PHS,
-    ::AbstractIntervalsMesh{PM,MM,BM},
+    model::Optimizer,
+    i::Integer,
+    phase::PHS,
+    mesh::AbstractIntervalsMesh{PM,MM,BM},
 ) where {PM,MM<:Union{DAIRFeasMesh,QPMMesh,SAIRMesh,SAPMMesh},BM}
+
+    for (dif_fun, _, scaling) in values(model.dif_cons[phase])
+        f = transcribe_dif_least_square(model, dif_fun, scaling, i, phase, mesh)
+        push!(model.res_funcs, f)
+    end
+
+    for (alg_fun, _, scaling) in values(model.alg_cons[phase])
+        f = transcribe_alg_least_square(model, alg_fun, scaling, i, phase, mesh)
+        push!(model.res_funcs, f)
+    end
+
     return nothing
 end
 
@@ -539,21 +550,29 @@ function transcribe_alg_cons!(
     method_mesh = get_method_mesh(mesh, i)
 
     for (dif_fun, _, scaling) in values(model.dif_cons[phase])
-        f = transcribe_dif_least_square(model, dif_fun, scaling, i, phase, mesh)
+        tol = sqrt(method_mesh.tolerance)
+        f = MOI.ScalarNonlinearFunction(:*, [
+            1.0 / tol,
+            transcribe_dif_least_square(model, dif_fun, scaling, i, phase, mesh)
+        ])
         MOI.add_constraint(
             model.inner,
             f,
-            MOI.LessThan(method_mesh.tolerance),
+            MOI.LessThan(tol),
         )
         push!(model.res_funcs, f)
     end
 
     for (alg_fun, _, scaling) in values(model.alg_cons[phase])
-        f = transcribe_alg_least_square(model, alg_fun, scaling, i, phase, mesh)
+        tol = sqrt(method_mesh.tolerance)
+        f = MOI.ScalarNonlinearFunction(:*, [
+            1.0 / tol,
+            transcribe_alg_least_square(model, alg_fun, scaling, i, phase, mesh)
+        ])
         MOI.add_constraint(
             model.inner,
             f,
-            MOI.LessThan(method_mesh.tolerance),
+            MOI.LessThan(tol),
         )
         push!(model.res_funcs, f)
     end

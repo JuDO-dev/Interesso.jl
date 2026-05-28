@@ -345,6 +345,21 @@ function transcribe_bou_fun(bolza::BOLZA, model::Optimizer, meshes::MESHES)
 end
 
 # least-square dynamics
+function lift!(
+    model::Optimizer,
+    f::MOI.AbstractScalarFunction,
+)
+    s = MOI.add_variable(model.inner)
+    MOI.set(model.inner, MOI.VariablePrimalStart(), s, 0.0)
+    push!(model.lift_vars, s)
+    MOI.add_constraint(
+        model.inner,
+        MOI.ScalarNonlinearFunction(:-, Any[s, f]),
+        MOI.EqualTo(0.0),
+    )
+    return s
+end
+
 function transcribe_dif_least_square(
     model::Optimizer,
     dif_fun::DIF_FUN,
@@ -360,16 +375,17 @@ function transcribe_dif_least_square(
     return MOI.ScalarNonlinearFunction(
         :+,
         [
-            MOI.ScalarNonlinearFunction(:*, [
-                method_mesh.quad_points_mesh.quad_weights[q],
-                MOI.ScalarNonlinearFunction(:^, [
-                    transcribe_dyn_fun(
-                        dif_fun, i, q, model.phase_vars, model.time_vars[phase],
-                        model.dyn_var_vars, model.dif_dyn_vars, mesh, scaling
-                    ),
-                    2.0
+            begin
+                f = transcribe_dyn_fun(
+                    dif_fun, i, q, model.phase_vars, model.time_vars[phase],
+                    model.dyn_var_vars, model.dif_dyn_vars, mesh, scaling
+                )
+                s = lift!(model, f)
+                MOI.ScalarNonlinearFunction(:*, Any[
+                    method_mesh.quad_points_mesh.quad_weights[q],
+                    MOI.ScalarNonlinearFunction(:^, [s, 2.0])
                 ])
-            ]) for q in 1:n_p_quad
+            end for q in 1:n_p_quad
         ]
     ) 
 end
@@ -424,16 +440,17 @@ function transcribe_alg_least_square(
     return MOI.ScalarNonlinearFunction(
         :+,
         [
-            MOI.ScalarNonlinearFunction(:*, [
-                method_mesh.quad_points_mesh.quad_weights[q],
-                MOI.ScalarNonlinearFunction(:^, [
-                    transcribe_dyn_fun(
-                        alg_fun, i, q, model.phase_vars, model.time_vars[phase],
-                        model.dyn_var_vars, model.dif_dyn_vars, mesh, scaling
-                    ),
-                    2.0
+            begin
+                f = transcribe_dyn_fun(
+                    alg_fun, i, q, model.phase_vars, model.time_vars[phase],
+                    model.dyn_var_vars, model.dif_dyn_vars, mesh, scaling
+                )
+                s = lift!(model, f)
+                MOI.ScalarNonlinearFunction(:*, Any[
+                    method_mesh.quad_points_mesh.quad_weights[q],
+                    MOI.ScalarNonlinearFunction(:^, [s, 2.0])
                 ])
-            ]) for q in 1:n_p_quad
+            end for q in 1:n_p_quad
         ]
     ) 
 end
@@ -516,6 +533,13 @@ function transcribe_dyn_least_square(
     )
 end
 
+function transcribe_dyn_fun_derivative(
+    f::MOI.AbstractScalarFunction,
+    var::VAR,
+)
+    return MOI.Nonlinear.SymbolicAD.derivative(f, var)
+end
+
 function transcribe_grad_dif_dyn(
     model::Optimizer,
     i::Integer,
@@ -525,16 +549,41 @@ function transcribe_grad_dif_dyn(
 
     grad_res_funcs = Vector{MOI.AbstractFunction}()
     vars = _get_interval_dyn_vars(model, i, phase)
-    dyn_res = transcribe_dyn_least_square(model, i, phase, mesh)
+    grad_terms = [MOI.AbstractFunction[] for _ in vars]
     path_terms = _path_multiplier_terms!(model, i, phase, mesh, vars)
 
-    for dyn_var in vars
-        func = MOI.Nonlinear.SymbolicAD.derivative(dyn_res, dyn_var)
-        if haskey(path_terms, dyn_var)
-            func = MOI.ScalarNonlinearFunction(:+, Any[func, path_terms[dyn_var]])
-        end
+    n_p_quad = get_points_quad_length(mesh)
+    method_mesh = get_method_mesh(mesh, i)
 
-        push!(grad_res_funcs, func)
+    for cons in (values(model.dif_cons[phase]), values(model.alg_cons[phase]))
+        for (dyn_fun, _, scaling) in cons
+            for q in 1:n_p_quad
+                f = transcribe_dyn_fun(
+                    dyn_fun, i, q, model.phase_vars, model.time_vars[phase],
+                    model.dyn_var_vars, model.dif_dyn_vars, mesh, scaling
+                )
+                s = lift!(model, f)
+
+                for (j, dyn_var) in enumerate(vars)
+                    df = transcribe_dyn_fun_derivative(f, dyn_var)
+                    push!(
+                        grad_terms[j],
+                        MOI.ScalarNonlinearFunction(:*, Any[
+                            method_mesh.quad_points_mesh.quad_weights[q],
+                            s, df,
+                        ])
+                    )
+                end
+            end
+        end
+    end
+
+    for (j, dyn_var) in enumerate(vars)
+        terms = grad_terms[j]
+        if haskey(path_terms, dyn_var)
+            push!(terms, path_terms[dyn_var])
+        end
+        push!(grad_res_funcs, MOI.ScalarNonlinearFunction(:+, terms))
     end
 
     return grad_res_funcs
@@ -556,6 +605,45 @@ end
 
 function transcribe_grad_dyn_least_square(
     model::Optimizer,
+    var::VAR,
+    phase::PHS,
+    mesh::AbstractIntervalsMesh{PM,MM,BM},
+) where {PM,MM<:AbstractIntResMesh,BM}
+
+    n_h = get_intervals_length(mesh)
+    grad_terms = MOI.AbstractFunction[]
+
+    for i in 1:n_h
+        n_p_quad = get_points_quad_length(mesh)
+        method_mesh = get_method_mesh(mesh, i)
+
+        for cons in (values(model.dif_cons[phase]), values(model.alg_cons[phase]))
+            for (dyn_fun, _, scaling) in cons
+                for q in 1:n_p_quad
+                    f = transcribe_dyn_fun(
+                        dyn_fun, i, q, model.phase_vars, model.time_vars[phase],
+                        model.dyn_var_vars, model.dif_dyn_vars, mesh, scaling
+                    )
+                    s = lift!(model, f)
+                    df = transcribe_dyn_fun_derivative(f, var)
+
+                    push!(
+                        grad_terms,
+                        MOI.ScalarNonlinearFunction(:*, Any[
+                            method_mesh.quad_points_mesh.quad_weights[q],
+                            s, df,
+                        ])
+                    )
+                end
+            end
+        end
+    end
+
+    return MOI.ScalarNonlinearFunction(:+, grad_terms)
+end
+
+function transcribe_grad_dyn_least_square(
+    model::Optimizer,
     phase::PHS,
     mesh::AbstractIntervalsMesh{PM,MM,BM},
 ) where {PM,MM<:AbstractIntResMesh,BM}
@@ -571,10 +659,12 @@ function transcribe_grad_dyn_least_square(
     end
 
     if model.time_vars[phase] isa VAR
-        dyn_res = transcribe_dyn_least_square(model, phase, mesh)
-        var = model.time_vars[phase]
-        func_t = MOI.Nonlinear.SymbolicAD.derivative(dyn_res, var)
-        push!(grad_res_funcs, func_t)
+        push!(
+            grad_res_funcs,
+            transcribe_grad_dyn_least_square(
+                model, model.time_vars[phase], phase, mesh
+            )
+        )
     end
 
     return grad_res_funcs

@@ -41,7 +41,7 @@ MOI.set(optimizer,
     "ρ0"       => 10,
     "h_norm"   => 2,
     "γ"        => 1.0,
-    "solver"   => "FBstab",
+    "solver"   => "Clarabel",
     "max_iter" => 1000,
     "max_time" => Inf,
     "verbose"  => false,
@@ -49,8 +49,8 @@ MOI.set(optimizer,
     "logging"  => 2
 )
 
-optimizer = Ipopt.Optimizer()
-MOI.set(optimizer, "max_iter" => 1000)
+# optimizer = Ipopt.Optimizer()
+# MOI.set(optimizer, "max_iter" => 1000)
 
 primal = nothing
 # @load joinpath(@__DIR__, "van_der_pol.jld2") primal
@@ -61,7 +61,7 @@ model = Interesso.Optimizer(
     inner=optimizer,
     # default_intervals=FlexibleIntervals(10, 0.1),
     default_intervals=FixedIntervals(50),
-    default_points=LGRPoints(3),
+    default_points=LGRPoints(4),
     # default_method=Collocation(),
     # default_method=DAIROpti(5),
     # default_method=Galerkin(5),
@@ -71,11 +71,12 @@ model = Interesso.Optimizer(
     # default_bounds=SampledBounds(9)
 )
 
-lqr(model)
+# lqr(model)
 # cart_pole(model)
 # orbit_raising(model)
-# van_der_pol(model)
+van_der_pol(model)
 # goddard_rocket(model)
+# two_link_robot_arm(model)
 
 MOI.optimize!(model; primal)
 

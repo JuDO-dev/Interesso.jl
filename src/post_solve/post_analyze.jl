@@ -94,7 +94,7 @@ function _eval_residual_function(
 
         for (τ, ω) in zip(τ_nodes, τ_weights)
             t = Σt + Δt * τ
-            r = abs(_evaluate_differential_residual(model, dif_fun, t))
+            r = (_evaluate_differential_residual(model, dif_fun, t))^2
             push!(nodes, t)
             push!(residual, r)
             l1 += Δt * ω * r
@@ -130,7 +130,7 @@ function _eval_residual_function(
         for (τ, ω) in zip(τ_nodes, τ_weights)
             t = Σt + Δt * τ
             value = _evaluate_dynamic_function(model, alg_fun, t)
-            r = abs(_constraint_violation(value, set))
+            r = (_constraint_violation(value, set))^2
             push!(nodes, t)
             push!(residual, r)
             l1 += Δt * ω * r

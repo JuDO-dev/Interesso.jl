@@ -158,6 +158,11 @@ function set_primal_start!(model::Interesso.Optimizer, x0::AbstractVector{T}) wh
     vars = MOI.get(model.inner, MOI.ListOfVariableIndices())
     sort!(vars; by = v -> v.value)
 
+    n_lift = length(model.lift_vars)
+    if n_lift > 0 && length(x0) == length(vars) - n_lift
+        filter!(v -> v ∉ model.lift_vars, vars)
+    end
+
     @assert length(vars) == length(x0) "Primal length mismatch."
     for (v, xv) in zip(vars, x0)
         MOI.set(model.inner, MOI.VariablePrimalStart(), v, Float64(xv))

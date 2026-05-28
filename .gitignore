@@ -1,6 +1,7 @@
 Manifest.toml
 
 .vscode/
+.claude/
 
 trial/
 *.pdf
@@ -8,5 +9,6 @@ trial/
 *.svg
 *.jld2
 *.csv
+*.tex
 
 example/vehicle/tracks
