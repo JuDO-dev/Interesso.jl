@@ -11,7 +11,7 @@ function aly_chan(
     MOI.add_constraint(model, DOI.Final(t), MOI.EqualTo(π/2))
 
     ## Input Dynamic Variable
-    @variable(model, u, t)
+    @control(model, u, t)
     MOI.add_constraint(model, u, MOI.Interval(-1.0, 1.0))
 
     ## State Dynamic Variables

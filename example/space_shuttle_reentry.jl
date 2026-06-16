@@ -44,10 +44,10 @@ function space_shuttle_reentry(
     @variable(model, ψ, t)
 
     ## Controls
-    @variable(model, α, t)
+    @control(model, α, t)
     MOI.add_constraint(model, α, MOI.Interval(deg2rad(-90.0), deg2rad(90.0)))
 
-    @variable(model, β, t)
+    @control(model, β, t)
     MOI.add_constraint(model, β, MOI.Interval(deg2rad(-90.0), deg2rad(1.0)))
 
     ## Boundary Conditions

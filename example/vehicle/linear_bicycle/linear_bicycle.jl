@@ -52,13 +52,13 @@ function linear_bicycle(
     # -----------------------------
     # Controls / algebraic variables
     # -----------------------------
-    @variable(model, δ, s)
+    @control(model, δ, s)
     MOI.add_constraint(model, δ, MOI.Interval(-π / 6, π / 6))
 
-    @variable(model, u_T, s) # throttle
+    @control(model, u_T, s) # throttle
     MOI.add_constraint(model, u_T, MOI.Interval(0.0, 1.0))
 
-    @variable(model, u_B, s) # brake
+    @control(model, u_B, s) # brake
     MOI.add_constraint(model, u_B, MOI.Interval(0.0, 1.0))
 
     # No simultaneous throttle + brake

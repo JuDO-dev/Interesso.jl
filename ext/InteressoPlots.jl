@@ -95,48 +95,54 @@ function Interesso.plot(model::Interesso.Optimizer)
     return plt
 end
 
+# Per-bar widths so neighbouring bars touch instead of collapsing to the
+# minimum node gap (LGR nodes cluster, which makes auto-width bars slivers).
+function _bar_widths(nodes::AbstractVector)
+    n = length(nodes)
+    n < 2 && return fill(1.0, n)
+    d = diff(nodes)
+    return [d; d[end]]
+end
+
 function Interesso.plot_residual!(
     plt::Plots.Plot,
     residuals::Vector{Interesso.IntervalResidual};
     aggregate::Bool=false,
-    label::String="aggregate",
+    label::String="",
+    style::Symbol=:line,
 )
+    style in (:line, :bar) ||
+        throw(ArgumentError("style must be :line or :bar, got :$style."))
+
     plot_residuals = aggregate ?
         Interesso.aggregate_residuals(residuals; label) :
         residuals
 
     for res in plot_residuals
-        Plots.plot!(
-            plt,
-            res.nodes,
-            res.residual;
-            xlabel = "domain",
-            ylabel = "residual",
-            label = res.label,
-            grid = true,
-        )
-        # Plots.bar!(
-        #     plt,
-        #     res.nodes,
-        #     res.residual;
-        #     xlabel = "domain",
-        #     ylabel = "residual",
-        #     label = res.label,
-        #     grid = true,
-        #     linealpha = 0,
-        # )
-        # Plots.scatter!(
-        #     plt,
-        #     res.nodes,
-        #     res.residual;
-        #     xlabel = "domain",
-        #     ylabel = "residual",
-        #     label = res.label,
-        #     grid = true,
-        #     markersize = 1,
-        #     markeralpha = 0.9,
-        #     markerstrokewidth = 0,
-        # )
+        if style === :line
+            Plots.plot!(
+                plt,
+                res.nodes,
+                res.residual;
+                xlabel = "domain",
+                ylabel = "residual",
+                label = res.label,
+                grid = true,
+            )
+        else
+            Plots.bar!(
+                plt,
+                res.nodes,
+                res.residual;
+                bar_width = _bar_widths(res.nodes),
+                xlabel = "domain",
+                ylabel = "residual",
+                label = res.label,
+                grid = true,
+                linealpha = 0,
+                fillalpha = 0.5,
+            )
+        end
     end
 
     return plt
@@ -147,19 +153,21 @@ function Interesso.plot_residual!(
     model::Interesso.Optimizer;
     q::Integer=10,
     aggregate::Bool=false,
-    label::String="aggregate",
+    label::String="",
+    style::Symbol=:line,
 )
     residuals = Interesso.residual_map(model; q)
-    return Interesso.plot_residual!(plt, residuals; aggregate, label)
+    return Interesso.plot_residual!(plt, residuals; aggregate, label, style)
 end
 
 function Interesso.plot_residual(
     residuals::Vector{Interesso.IntervalResidual};
     aggregate::Bool=false,
-    label::String="aggregate",
+    label::String="",
+    style::Symbol=:line,
 )
     plt = Plots.plot()
-    Interesso.plot_residual!(plt, residuals; aggregate, label)
+    Interesso.plot_residual!(plt, residuals; aggregate, label, style)
     Plots.plot!(plt; title = "Residual at quadrature points")
     return plt
 end
@@ -168,10 +176,11 @@ function Interesso.plot_residual(
     model::Interesso.Optimizer;
     q::Integer=10,
     aggregate::Bool=false,
-    label::String="aggregate",
+    label::String="",
+    style::Symbol=:line,
 )
     residuals = Interesso.residual_map(model; q)
-    plt = Interesso.plot_residual(residuals; aggregate, label)
+    plt = Interesso.plot_residual(residuals; aggregate, label, style)
     Plots.plot!(plt; title = "Residual at interpolated $(q) quadrature points")
     return plt
 end

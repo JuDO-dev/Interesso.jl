@@ -11,7 +11,7 @@ function van_der_pol(
     MOI.add_constraint(model, DOI.Final(t), MOI.EqualTo(4.0))
 
     ## Input Dynamic Variable
-    @variable(model, u, t)
+    @control(model, u, t)
     
     ## State Dynamic Variables
     @variable(model, x, t)

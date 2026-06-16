@@ -33,7 +33,7 @@ function goddard_rocket(
     MOI.add_constraint(model, DOI.Final(t), MOI.EqualTo(t_f))
 
     ## Input Dynamic Variable
-    @variable(model, T, t)
+    @control(model, T, t)
     MOI.add_constraint(model, T, MOI.Interval(T_min, T_max))
 
     ## State Dynamic Variables

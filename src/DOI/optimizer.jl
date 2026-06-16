@@ -17,6 +17,7 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
     dyn_var_finals::OrderedDict{PHS,OrderedDict{DYN_VAR,LC64}}
     linkages::LINKAGES
     dif_dyn_vars::OrderedSet{DYN_VAR}
+    ctrl_vars::OrderedSet{DYN_VAR}
     dif_cons::OrderedDict{PHS,DIF_CONS}
     alg_cons::OrderedDict{PHS,ALG_CONS}
     path_cons::OrderedDict{PHS,PATH_CONS}
@@ -93,6 +94,7 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
             OrderedDict{PHS,OrderedDict{DYN_VAR,LC64}}(),
             LINKAGES(),
             OrderedSet{DYN_VAR}(),
+            OrderedSet{DYN_VAR}(),
             OrderedDict{PHS,DIF_CONS}(),
             OrderedDict{PHS,ALG_CONS}(),
             OrderedDict{PHS,PATH_CONS}(),
@@ -134,6 +136,7 @@ function MOI.empty!(model::Optimizer)
     empty!(model.dyn_var_finals)
     empty!(model.linkages)
     empty!(model.dif_dyn_vars)
+    empty!(model.ctrl_vars)
     empty!(model.dif_cons)
     empty!(model.alg_cons)
     empty!(model.path_cons)
@@ -171,6 +174,7 @@ function MOI.is_empty(model::Optimizer)
         isempty(model.dyn_vars)           && isempty(model.dyn_var_bounds)     &&
         isempty(model.dyn_var_initials)   && isempty(model.dyn_var_finals)     &&
         isempty(model.linkages)           && isempty(model.dif_dyn_vars)       &&
+        isempty(model.ctrl_vars)          &&
         isempty(model.dif_cons)           && isempty(model.alg_cons)           &&
         isempty(model.path_cons)          && isempty(model.bou_cons)           &&
         model.objective_sense == MOI.FEASIBILITY_SENSE                         &&

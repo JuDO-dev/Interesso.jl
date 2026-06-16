@@ -171,6 +171,13 @@ function MOI.is_valid(model::Optimizer, dyn_var::DYN_VAR)
     return dyn_var in model.dyn_vars[phase]
 end
 
+# Mark a dynamic variable as a control
+function mark_control!(model::Optimizer, dyn_var::DYN_VAR)
+    _throw_if_invalid_index(model, dyn_var)
+    push!(model.ctrl_vars, dyn_var)
+    return nothing
+end
+
 function _throw_if_invalid_index(model::Optimizer, dyn_var::DYN_VAR)
     if !MOI.is_valid(model, dyn_var)
         throw(DOI.InvalidDynamicVariableIndex(dyn_var))

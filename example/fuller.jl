@@ -11,7 +11,7 @@ function fuller(
     MOI.add_constraint(model, DOI.Final(t), MOI.EqualTo(30.0))
 
     ## Input Dynamic Variable
-    @variable(model, u, t)
+    @control(model, u, t)
     MOI.add_constraint(model, u, MOI.Interval(-0.1, 0.1))
     
     ## State Dynamic Variables

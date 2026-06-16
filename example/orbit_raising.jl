@@ -13,8 +13,8 @@ function orbit_raising(
     MOI.add_constraint(model, DOI.Final(t), MOI.EqualTo(t_f))
 
     ## Input Dynamic Variable
-    @variable(model, u1, t)
-    @variable(model, u2, t)
+    @control(model, u1, t)
+    @control(model, u2, t)
     MOI.add_constraint(
         model, 
         NDF(

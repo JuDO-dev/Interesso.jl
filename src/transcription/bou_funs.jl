@@ -681,6 +681,8 @@ function _get_interval_dyn_vars(
         if dyn_var in model.dif_dyn_vars
             append!(interval_vars, model.dyn_var_vars[dyn_var][i])
             filter!(var -> (var != model.dyn_var_vars[dyn_var][i][1]), interval_vars)  # remove the first one for continuity
+        elseif !(dyn_var in model.ctrl_vars)
+            append!(interval_vars, model.dyn_var_vars[dyn_var][i])  # algebraic variable: differentiated, no shared continuity node
         end
     end
 

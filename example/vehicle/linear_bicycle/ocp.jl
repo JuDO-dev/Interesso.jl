@@ -47,8 +47,8 @@ model = Interesso.Optimizer(
     default_points=LGRPoints(4),
     # default_method=Collocation(),
     # default_method=DAIR(5),
-    # default_method=DAIROpti(5;tolerance=1e-6),
-    default_method=Galerkin(5)
+    default_method=DAIROpti(5;tolerance=1e-6),
+    # default_method=Galerkin(5)
     # default_method=QPM(5;penalty=0.0001),
     # default_method=SAIR(5),
     # default_bounds=SampledBounds(9)

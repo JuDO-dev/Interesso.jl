@@ -11,7 +11,7 @@ function double_integrator(
     MOI.add_constraint(model, DOI.Final(t), MOI.EqualTo(10.0))
 
     ## Input Dynamic Variable
-    @variable(model, u, t)
+    @control(model, u, t)
     
     ## State Dynamic Variables
     @variable(model, x, t)

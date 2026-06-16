@@ -58,10 +58,10 @@ function race_car(
     MOI.add_constraint(model, DOI.Final(s),   MOI.EqualTo(s_f))
 
     # Controls
-    @variable(model, derD, s)
+    @control(model, derD, s)
     MOI.add_constraint(model, derD, MOI.Interval(-10.0, 10.0))
 
-    @variable(model, derδ, s)
+    @control(model, derδ, s)
     MOI.add_constraint(model, derδ, MOI.Interval(-2.0, 2.0))
 
     # States

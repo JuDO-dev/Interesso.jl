@@ -11,7 +11,7 @@ function hyper_sensitive(
     MOI.add_constraint(model, DOI.Final(t), MOI.EqualTo(10000.0))
 
     ## Input Dynamic Variable
-    @variable(model, u, t)
+    @control(model, u, t)
     
     ## State Dynamic Variables
     @variable(model, x, t)

@@ -10,7 +10,7 @@ function bang_bang(
     MOI.add_constraint(model, DOI.Initial(t), MOI.EqualTo(0.0))
 
     ## Input Dynamic Variable
-    @variable(model, u, t)
+    @control(model, u, t)
     MOI.add_constraint(model, u, MOI.Interval(-2.0, 1.0))
     
     ## State Dynamic Variables

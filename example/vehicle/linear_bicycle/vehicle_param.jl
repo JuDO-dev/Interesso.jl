@@ -7,6 +7,7 @@ Base.@kwdef struct VehicleParams
     m::Float64    = 795.0            # kg
     g::Float64    = 9.81             # m/s^2
     l::Float64    = 3.135            # m
+    h::Float64    = 0.3              # m
     W_b::Float64  = 0.45
     l_f::Float64  = l * (1.0 - W_b)  # m
     l_r::Float64  = l * W_b          # m
@@ -43,6 +44,4 @@ Base.@kwdef struct VehicleParams
     kWf::Float64  = m * g * (l_r / l)
     kWr::Float64  = m * g * (l_f / l)
 
-    κ_c::Float64  = 0.0              # track curvature [1/m]; constant here
-    n::Float64    = 5.0              # track width
 end

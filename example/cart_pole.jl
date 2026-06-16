@@ -21,7 +21,7 @@ function cart_pole(
     r_max = 2.0
 
     ## Input Dynamic Variable
-    @variable(model, u, t)
+    @control(model, u, t)
 
     ## State Dynamic Variables
     @variable(model, r, t)

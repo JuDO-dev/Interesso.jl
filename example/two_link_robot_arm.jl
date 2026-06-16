@@ -17,8 +17,8 @@ function two_link_robot_arm(
     # ---------------------------
     # Controls
     # ---------------------------
-    @variable(model, u1, t)
-    @variable(model, u2, t)
+    @control(model, u1, t)
+    @control(model, u2, t)
     MOI.add_constraint(model, u1, MOI.Interval(-1.0, 1.0))
     MOI.add_constraint(model, u2, MOI.Interval(-1.0, 1.0))
 

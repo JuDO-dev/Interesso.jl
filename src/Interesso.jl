@@ -36,7 +36,7 @@ export AbstractPoints, AbstractPointsMesh, LGRPoints, LGLPoints
 export AbstractMethod, AbstractMethodMesh, AbstractIntRes, AbstractIntResMesh, Collocation, Galerkin, AbstractDAIR, DAIR, DAIRFeas, DAIROpti, QPM, SAIR, SAPM
 export AbstractBounds, AbstractBoundsMesh, ExactBounds, SampledBounds, BernsteinBounds
 export AbstractIntervals, AbstractIntervalsMesh, FixedIntervals, FlexibleIntervals
-export @variable
+export @variable, @control
 export get_solutions, warmstart!
 export get_primal, get_dual, get_primal_dual, set_primal_start!, set_dual_start!
 export eval_funcs, eval_accuracy, assess_solution, residual_map, summarize_residual
