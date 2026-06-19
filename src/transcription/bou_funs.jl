@@ -547,10 +547,9 @@ function transcribe_grad_dif_dyn(
     mesh::AbstractIntervalsMesh{PM,MM,BM},
 ) where {PM,MM<:AbstractIntResMesh,BM}
 
-    grad_res_funcs = Vector{MOI.AbstractFunction}()
+    grad_res_funcs = Vector{MOI.ScalarNonlinearFunction}()
     vars = _get_interval_dyn_vars(model, i, phase)
-    grad_terms = [MOI.AbstractFunction[] for _ in vars]
-    path_terms = _path_multiplier_terms!(model, i, phase, mesh, vars)
+    grad_terms = [MOI.ScalarNonlinearFunction[] for _ in vars]
 
     n_p_quad = get_points_quad_length(mesh)
     method_mesh = get_method_mesh(mesh, i)
@@ -578,11 +577,7 @@ function transcribe_grad_dif_dyn(
         end
     end
 
-    for (j, dyn_var) in enumerate(vars)
-        terms = grad_terms[j]
-        if haskey(path_terms, dyn_var)
-            push!(terms, path_terms[dyn_var])
-        end
+    for terms in grad_terms
         push!(grad_res_funcs, MOI.ScalarNonlinearFunction(:+, terms))
     end
 
@@ -689,121 +684,4 @@ function _get_interval_dyn_vars(
     unique!(interval_vars)
 
     return unique!(interval_vars)
-end
-
-function _add_nonnegative_variable!(model::Optimizer)
-    μ = MOI.add_variable(model.inner)
-    MOI.set(model.inner, MOI.VariablePrimalStart(), μ, 0.0)
-    MOI.add_constraint(model.inner, μ, MOI.GreaterThan(0.0))
-    return MOI.ScalarNonlinearFunction(:+, [μ])
-end
-
-# function _add_nonnegative_variable!(model::Optimizer)
-#     μ = MOI.add_variable(model.inner)
-#     return MOI.ScalarNonlinearFunction(:^, [μ, 2.0])
-# end
-
-function _add_complementarity!(
-    model::Optimizer,
-    μ::MOI.ScalarNonlinearFunction,
-    residual::MOI.ScalarNonlinearFunction,
-)
-    comp = MOI.ScalarNonlinearFunction(:*, Any[μ, residual])
-    MOI.add_constraint(model.inner, comp, MOI.EqualTo(0.0))
-    return comp
-end
-
-function _path_upper_residual(path_con::MOI.ScalarNonlinearFunction, upper::Float64)
-    return MOI.ScalarNonlinearFunction(:-, Any[path_con, upper])
-end
-
-function _path_lower_residual(path_con::MOI.ScalarNonlinearFunction, lower::Float64)
-    return MOI.ScalarNonlinearFunction(:-, Any[lower, path_con])
-end
-
-function _accumulate_path_derivative_term!(
-    terms::Dict{VAR,MOI.AbstractFunction},
-    var::VAR,
-    op::Symbol,
-    term::MOI.AbstractFunction,
-)
-    if haskey(terms, var)
-        terms[var] = MOI.ScalarNonlinearFunction(op, Any[terms[var], term])
-    elseif op === :+
-        terms[var] = term
-    elseif op === :-
-        terms[var] = MOI.ScalarNonlinearFunction(:-, Any[term])
-    else
-        error("Unsupported path derivative operator: $(op)")
-    end
-
-    return nothing
-end
-
-function _add_path_derivative_term!(
-    terms::Dict{VAR,MOI.AbstractFunction},
-    var::VAR,
-    μ::MOI.ScalarNonlinearFunction,
-    op::Symbol,
-    path_con::MOI.ScalarNonlinearFunction,
-)
-    dpath = MOI.Nonlinear.SymbolicAD.derivative(path_con, var)
-    term = MOI.ScalarNonlinearFunction(:*, Any[μ, dpath])
-
-    return _accumulate_path_derivative_term!(terms, var, op, term)
-end
-
-function _path_multiplier_terms!(
-    model::Optimizer,
-    i::Integer,
-    phase::PHS,
-    mesh::AbstractIntervalsMesh{PM,MM,BM},
-    vars::Vector{VAR},
-) where {PM,MM<:AbstractIntResMesh,BM}
-
-    terms = Dict{VAR,MOI.AbstractFunction}()
-    n_p_quad = get_points_quad_length(mesh)
-
-    for q in 1:n_p_quad
-        for (path_fun, set) in values(model.path_cons[phase])
-            path_con = transcribe_dyn_fun(
-                path_fun, i, q, model.phase_vars, model.time_vars[phase],
-                model.dyn_var_vars, model.dif_dyn_vars, mesh,
-            )
-
-            if set isa LE64
-                μ = _add_nonnegative_variable!(model)
-                residual = _path_upper_residual(path_con, set.upper)
-                _add_complementarity!(model, μ, residual)
-                for var in vars
-                    _add_path_derivative_term!(terms, var, μ, :+, path_con)
-                end
-
-            elseif set isa GE64
-                μ = _add_nonnegative_variable!(model)
-                residual = _path_lower_residual(path_con, set.lower)
-                _add_complementarity!(model, μ, residual)
-                for var in vars
-                    _add_path_derivative_term!(terms, var, μ, :-, path_con)
-                end
-
-            elseif set isa IV64
-                μ = _add_nonnegative_variable!(model)
-                residual = _path_lower_residual(path_con, set.lower)
-                _add_complementarity!(model, μ, residual)
-                for var in vars
-                    _add_path_derivative_term!(terms, var, μ, :-, path_con)
-                end
-
-                μ = _add_nonnegative_variable!(model)
-                residual = _path_upper_residual(path_con, set.upper)
-                _add_complementarity!(model, μ, residual)
-                for var in vars
-                    _add_path_derivative_term!(terms, var, μ, :+, path_con)
-                end
-            end
-        end
-    end
-
-    return terms
 end

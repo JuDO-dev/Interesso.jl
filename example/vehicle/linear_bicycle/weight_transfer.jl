@@ -14,11 +14,12 @@ Controls / algebraic variables (dynamic variables):
   u_T, u_B    throttle and brake [0–1]
   κ_fx, κ_rx  longitudinal slip ratios front/rear
   κ_fy, κ_ry  lateral slip ratios front/rear
+  F_za        longitudinal load transfer [N]
 """
 
 include(joinpath(@__DIR__, "vehicle_param.jl"))
 
-function linear_bicycle(
+function weight_transfer(
     model::Interesso.Optimizer,
     trackfile::String;
     starts::Interesso.WSS = Interesso.WSS{DOI.AbstractDynamicSolution}(),
@@ -68,6 +69,8 @@ function linear_bicycle(
     MOI.add_constraint(model, κ_rx, MOI.Interval(-κ_lim, κ_lim))
     MOI.add_constraint(model, κ_fy, MOI.Interval(-κ_lim, κ_lim))
     MOI.add_constraint(model, κ_ry, MOI.Interval(-κ_lim, κ_lim))
+
+    @variable(model, F_za, s) # longitudinal load transfer
 
     # -----------------------------
     # States
@@ -120,8 +123,9 @@ function linear_bicycle(
     F_lf = NDF(:*, [param.kFlf, vx2], s)
     F_lr = NDF(:*, [param.kFlr, vx2], s)
 
-    F_zf = NDF(:+, [param.kWf, F_lf], s)
-    F_zr = NDF(:+, [param.kWr, F_lr], s)
+    # Static weight + aero ∓ longitudinal load transfer
+    F_zf = NDF(:-, [NDF(:+, [param.kWf, F_lf], s), F_za], s)
+    F_zr = NDF(:+, [param.kWr, F_lr, F_za], s)
 
     # Contact patch velocities
     v_yf = NDF(:+, [v_y, NDF(:*, [param.l_f, dψ], s)], s)
@@ -197,15 +201,23 @@ function linear_bicycle(
     Fxf_sinδ = NDF(:*, [F_xf, sinδ], s)
     Fyf_cosδ = NDF(:*, [F_yf, cosδ], s)
 
+    # -----------------------------
+    # Load transfer closure (path equality):
+    #   F_za = (h/l)*(F_xf*cosδ + F_xr - F_yf*sinδ - F_d)
+    # -----------------------------
+    F_x_net = NDF(:-, [NDF(:+, [Fxf_cosδ, F_xr], s), NDF(:+, [Fyf_sinδ, F_d], s)], s)
+    MOI.add_constraint(
+        model,
+        NDF(:-, [F_za, NDF(:*, [(param.h / param.l), F_x_net], s)], s),
+        MOI.EqualTo(0.0)
+    )
+
     # (v_y*dψ + (F_xf*cosδ + F_xr - F_yf*sinδ - F_d)/m) * dt
     dv_x = NDF(:*, [
         NDF(:+, [
             NDF(:*, [
-                NDF(:-, [
-                    NDF(:+, [Fxf_cosδ, F_xr], s),
-                    NDF(:+, [Fyf_sinδ, F_d], s)
-                ], s),
-                (1.0 / param.m)
+                F_za,
+                (param.l / (param.m * param.h))
             ], s),
             NDF(:*, [v_y, dψ], s)
         ], s),
@@ -295,6 +307,7 @@ function linear_bicycle(
         MOI.set(model, DOI.DynamicVariableStart(), κ_rx, LinearInterpolant(0.0, 0.0, s_0, s_f))
         MOI.set(model, DOI.DynamicVariableStart(), κ_fy, LinearInterpolant(0.0, 0.0, s_0, s_f))
         MOI.set(model, DOI.DynamicVariableStart(), κ_ry, LinearInterpolant(0.0, 0.0, s_0, s_f))
+        MOI.set(model, DOI.DynamicVariableStart(), F_za, LinearInterpolant(0.0, 0.0, s_0, s_f))
     else
         Interesso.warmstart!(model, starts)
     end
